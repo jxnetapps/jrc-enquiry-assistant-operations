@@ -98,6 +98,42 @@ async function startCrawl() {
   }
 }
 
+async function uploadDocs() {
+  if (!authToken) {
+    if (!(await login())) return;
+  }
+
+  const input = document.getElementById("upload-files");
+  const files = input.files;
+  if (!files || files.length === 0) {
+    alert("Select one or more files");
+    return;
+  }
+
+  const statusDiv = document.getElementById("upload-status");
+  statusDiv.textContent = "Uploading...";
+
+  const form = new FormData();
+  for (const f of files) form.append("files", f);
+
+  try {
+    const response = await fetch("/api/upload-docs", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${authToken}` },
+      body: form,
+    });
+    const data = await response.json();
+    if (response.ok) {
+      statusDiv.textContent = `Uploaded. ${data.chunks_processed} chunks processed`;
+    } else {
+      statusDiv.textContent = `Upload failed: ${data.detail || "unknown error"}`;
+    }
+  } catch (e) {
+    console.error("Upload error:", e);
+    statusDiv.textContent = "Upload failed";
+  }
+}
+
 function addMessage(sender, text) {
   const messagesDiv = document.getElementById("chat-messages");
   const messageDiv = document.createElement("div");

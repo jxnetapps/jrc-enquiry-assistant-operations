@@ -7,6 +7,7 @@ from pydantic import BaseModel
 import asyncio
 from typing import List, Optional
 import logging
+from fastapi import UploadFile, File
 
 from config import Config
 from crawler.web_crawler import WebCrawler
@@ -16,6 +17,7 @@ from database.vector_db import VectorDB
 from chatbot.chat_interface import ChatBot
 from auth.authentication import AuthHandler, authenticate_user
 from utils.scheduler import Scheduler
+from utils.doc_parser import parse_pdf, parse_docx, parse_txt
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -57,6 +59,10 @@ class CrawlRequest(BaseModel):
 class ChatResponse(BaseModel):
     response: str
     sources: List[dict]
+
+class UploadResponse(BaseModel):
+    status: str
+    chunks_processed: int
 
 # Routes
 @app.get("/", response_class=HTMLResponse)
@@ -110,6 +116,45 @@ async def crawl_website(crawl_data: CrawlRequest, current_user: str = Depends(au
             
     except Exception as e:
         logger.error(f"Crawl error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/upload-docs", response_model=UploadResponse)
+async def upload_documents(files: List[UploadFile] = File(...), current_user: str = Depends(auth_handler.get_current_user)):
+    try:
+        processor = ContentProcessor()
+        embedding_generator = EmbeddingGenerator()
+        vector_db = VectorDB()
+
+        processed_chunks: List[dict] = []
+        for f in files:
+            data = await f.read()
+            name = f.filename or "document"
+            lower = name.lower()
+            if lower.endswith(".pdf"):
+                parsed = parse_pdf(data, name)
+            elif lower.endswith(".docx") or lower.endswith(".doc"):
+                parsed = parse_docx(data, name)
+            else:
+                parsed = parse_txt(data, name)
+
+            page = {
+                "url": f"uploaded://{name}",
+                "title": parsed["title"],
+                "content": parsed["content"],
+                "crawled_at": "uploaded"
+            }
+            chunks = processor.process_pages([page])
+            processed_chunks.extend(chunks)
+
+        if processed_chunks:
+            texts = [c["content"] for c in processed_chunks]
+            embeddings = embedding_generator.generate_embeddings(texts)
+            vector_db.store_documents(processed_chunks, embeddings)
+            return UploadResponse(status="success", chunks_processed=len(processed_chunks))
+        else:
+            return UploadResponse(status="success", chunks_processed=0)
+    except Exception as e:
+        logger.error(f"Upload error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/stats")

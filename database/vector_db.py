@@ -21,6 +21,7 @@ class VectorDB:
         self.storage_dir = os.path.join(Config.CHROMA_DB_PATH, Config.COLLECTION_NAME)
         self.index_path = os.path.join(self.storage_dir, "index.faiss")
         self.meta_path = os.path.join(self.storage_dir, "meta.pkl")
+        self._last_loaded_mtime: float = 0.0
         self._initialize_db()
         
     def _initialize_db(self):
@@ -34,6 +35,10 @@ class VectorDB:
                     self.texts = saved.get("texts", [])
                     self.metadatas = saved.get("metadatas", [])
                     self.dimension = saved.get("dimension", 0)
+                try:
+                    self._last_loaded_mtime = max(os.path.getmtime(self.index_path), os.path.getmtime(self.meta_path))
+                except Exception:
+                    self._last_loaded_mtime = 0.0
                 logger.info("Vector database loaded from disk")
             else:
                 # Defer index creation until first add when we know dimension
@@ -86,6 +91,10 @@ class VectorDB:
                     "metadatas": self.metadatas,
                     "dimension": self.dimension,
                 }, f)
+            try:
+                self._last_loaded_mtime = max(os.path.getmtime(self.index_path), os.path.getmtime(self.meta_path))
+            except Exception:
+                pass
 
             logger.info(f"Stored {len(documents)} documents in vector database")
         except Exception as e:
@@ -95,6 +104,22 @@ class VectorDB:
     def search_similar(self, query_embedding: List[float], top_k: int = 5):
         """Search for similar documents"""
         try:
+            # Hot-reload index if another process updated it (e.g., upload endpoint)
+            try:
+                current_mtime = max(os.path.getmtime(self.index_path), os.path.getmtime(self.meta_path))
+            except Exception:
+                current_mtime = self._last_loaded_mtime
+            if current_mtime > self._last_loaded_mtime:
+                # Reload from disk
+                self.index = faiss.read_index(self.index_path)
+                with open(self.meta_path, "rb") as f:
+                    saved = pickle.load(f)
+                    self.ids = saved.get("ids", [])
+                    self.texts = saved.get("texts", [])
+                    self.metadatas = saved.get("metadatas", [])
+                    self.dimension = saved.get("dimension", 0)
+                self._last_loaded_mtime = current_mtime
+
             if self.index is None or self.index.ntotal == 0:
                 return {"documents": [[]], "metadatas": [[]], "distances": [[]]}
             vec = np.array([query_embedding], dtype=np.float32)
