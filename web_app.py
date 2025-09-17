@@ -13,7 +13,7 @@ from config import Config
 from crawler.web_crawler import WebCrawler
 from crawler.content_processor import ContentProcessor
 from embedding.embedding_generator import EmbeddingGenerator
-from database.vector_db import VectorDB
+from database.db_factory import DatabaseFactory
 from chatbot.chat_interface import ChatBot
 from auth.authentication import AuthHandler, authenticate_user
 from utils.scheduler import Scheduler
@@ -40,7 +40,8 @@ templates = Jinja2Templates(directory="templates")
 
 # Initialize components
 auth_handler = AuthHandler()
-chatbot = ChatBot()
+def get_chatbot_for_user(username: str) -> ChatBot:
+    return ChatBot(user_namespace=username)
 scheduler = Scheduler()
 
 # Pydantic models
@@ -79,6 +80,7 @@ async def login(login_data: LoginRequest):
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat_endpoint(chat_data: ChatRequest, current_user: str = Depends(auth_handler.get_current_user)):
     try:
+        chatbot = get_chatbot_for_user(current_user)
         response = chatbot.chat(chat_data.message)
         return ChatResponse(response=response, sources=[])
     except Exception as e:
@@ -96,7 +98,7 @@ async def crawl_website(crawl_data: CrawlRequest, current_user: str = Depends(au
         )
         processor = ContentProcessor()
         embedding_generator = EmbeddingGenerator()
-        vector_db = VectorDB()
+        vector_db = DatabaseFactory.create_vector_db(user_namespace=current_user)
         
         pages = await crawler.crawl(crawl_data.url)
         processed_chunks = processor.process_pages(pages)
@@ -123,7 +125,7 @@ async def upload_documents(files: List[UploadFile] = File(...), current_user: st
     try:
         processor = ContentProcessor()
         embedding_generator = EmbeddingGenerator()
-        vector_db = VectorDB()
+        vector_db = DatabaseFactory.create_vector_db(user_namespace=current_user)
 
         processed_chunks: List[dict] = []
         for f in files:
@@ -160,7 +162,7 @@ async def upload_documents(files: List[UploadFile] = File(...), current_user: st
 @app.get("/api/stats")
 async def get_stats(current_user: str = Depends(auth_handler.get_current_user)):
     try:
-        vector_db = VectorDB()
+        vector_db = DatabaseFactory.create_vector_db(user_namespace=current_user)
         count = vector_db.get_collection_stats()
         return {"document_count": count}
     except Exception as e:

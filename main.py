@@ -3,7 +3,7 @@ import logging
 from crawler.web_crawler import WebCrawler
 from crawler.content_processor import ContentProcessor
 from embedding.embedding_generator import EmbeddingGenerator
-from database.vector_db import VectorDB
+from database.db_factory import DatabaseFactory
 from chatbot.chat_interface import ChatBot
 from config import Config
 
@@ -21,7 +21,7 @@ class WebChatBot:
         )
         self.processor = ContentProcessor()
         self.embedding_generator = EmbeddingGenerator()
-        self.vector_db = VectorDB()
+        self.vector_db = DatabaseFactory.create_vector_db()
         self.chatbot = ChatBot()
     
     async def crawl_and_process(self, start_url: str):

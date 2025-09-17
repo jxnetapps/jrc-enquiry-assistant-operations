@@ -12,6 +12,15 @@ class Config:
     CHROMA_DB_PATH = os.getenv("CHROMA_DB_PATH", "./chroma_db")
     COLLECTION_NAME = os.getenv("COLLECTION_NAME", "web_content")
     
+    # Database Type: 'local' for FAISS, 'cloud' for Chroma Cloud
+    DATABASE_TYPE = os.getenv("DATABASE_TYPE", "local")
+    
+    # Chroma Cloud Configuration
+    CHROMA_CLOUD_API_KEY = os.getenv("CHROMA_CLOUD_API_KEY")
+    CHROMA_CLOUD_TENANT_ID = os.getenv("CHROMA_CLOUD_TENANT_ID")
+    CHROMA_CLOUD_DATABASE_ID = os.getenv("CHROMA_CLOUD_DATABASE_ID")
+    CHROMA_CLOUD_COLLECTION_NAME = os.getenv("CHROMA_CLOUD_COLLECTION_NAME", "web_content")
+    
     # Crawler Settings
     MAX_PAGES_TO_CRAWL = int(os.getenv("MAX_PAGES_TO_CRAWL", "100"))
     CRAWL_DEPTH = int(os.getenv("CRAWL_DEPTH", "3"))
@@ -38,6 +47,8 @@ class Config:
     JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your_super_secret_jwt_key_here")
     ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
     ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
+    # Auth mode: when true, allow any username/password for testing and namespace data by username
+    ALLOW_ANY_USER = os.getenv("ALLOW_ANY_USER", "True").lower() == "true"
     
     # Web Interface
     HOST = os.getenv("HOST", "0.0.0.0")
@@ -57,3 +68,11 @@ class Config:
         """Validate configuration values"""
         if not cls.OPENAI_API_KEY and cls.EMBEDDING_MODEL == cls.OPENAI_EMBEDDING_MODEL:
             raise ValueError("OPENAI_API_KEY is required when using OpenAI embeddings")
+        
+        if cls.DATABASE_TYPE == "cloud":
+            if not cls.CHROMA_CLOUD_API_KEY:
+                raise ValueError("CHROMA_CLOUD_API_KEY is required when using cloud database")
+            if not cls.CHROMA_CLOUD_TENANT_ID:
+                raise ValueError("CHROMA_CLOUD_TENANT_ID is required when using cloud database")
+            if not cls.CHROMA_CLOUD_DATABASE_ID:
+                raise ValueError("CHROMA_CLOUD_DATABASE_ID is required when using cloud database")

@@ -1,28 +1,44 @@
 import os
 import json
 import pickle
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import logging
 
 import numpy as np
 import faiss
 
 from config import Config
+from database.vector_db_interface import VectorDBInterface
 
 logger = logging.getLogger(__name__)
 
-class VectorDB:
-    def __init__(self):
+class VectorDB(VectorDBInterface):
+    def __init__(self, user_namespace: Optional[str] = None):
         self.index = None  # faiss.Index
         self.ids: List[str] = []
         self.texts: List[str] = []
         self.metadatas: List[Dict[str, Any]] = []
         self.dimension: int = 0
-        self.storage_dir = os.path.join(Config.CHROMA_DB_PATH, Config.COLLECTION_NAME)
+        self.user_namespace = self._sanitize_namespace(user_namespace) if user_namespace else None
+        base_dir = os.path.join(Config.CHROMA_DB_PATH, "users", self.user_namespace) if self.user_namespace else Config.CHROMA_DB_PATH
+        self.storage_dir = os.path.join(base_dir, Config.COLLECTION_NAME)
         self.index_path = os.path.join(self.storage_dir, "index.faiss")
         self.meta_path = os.path.join(self.storage_dir, "meta.pkl")
         self._last_loaded_mtime: float = 0.0
         self._initialize_db()
+
+    @staticmethod
+    def _sanitize_namespace(ns: Optional[str]) -> Optional[str]:
+        if not ns:
+            return None
+        # Keep alphanumerics, dash and underscore. Replace others with underscore.
+        safe = []
+        for ch in ns:
+            if ch.isalnum() or ch in ("-", "_"):
+                safe.append(ch)
+            else:
+                safe.append("_")
+        return "".join(safe)[:64]
         
     def _initialize_db(self):
         try:

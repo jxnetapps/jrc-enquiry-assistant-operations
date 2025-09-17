@@ -8,15 +8,15 @@ except Exception:  # pragma: no cover
     import openai  # type: ignore
     _OPENAI_V1 = False
 from embedding.embedding_generator import EmbeddingGenerator
-from database.vector_db import VectorDB
+from database.db_factory import DatabaseFactory
 from config import Config
 
 logger = logging.getLogger(__name__)
 
 class ChatBot:
-    def __init__(self):
+    def __init__(self, user_namespace: str = None):
         self.embedding_generator = EmbeddingGenerator()
-        self.vector_db = VectorDB()
+        self.vector_db = DatabaseFactory.create_vector_db(user_namespace=user_namespace)
         self.setup_openai()
         
     def setup_openai(self):

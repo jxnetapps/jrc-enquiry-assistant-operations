@@ -126,7 +126,9 @@ async function uploadDocs() {
     if (response.ok) {
       statusDiv.textContent = `Uploaded. ${data.chunks_processed} chunks processed`;
     } else {
-      statusDiv.textContent = `Upload failed: ${data.detail || "unknown error"}`;
+      statusDiv.textContent = `Upload failed: ${
+        data.detail || "unknown error"
+      }`;
     }
   } catch (e) {
     console.error("Upload error:", e);
@@ -141,10 +143,8 @@ function addMessage(sender, text) {
   //messageDiv.textContent = text;
 
   // Auto-convert to Markdown
-  const markdownResponse = text
-    .replace(/\. /g, ".\n\n") // paragraphs
-    .replace(/Edify Schools/g, "**Edify Schools**");
-  messageDiv.innerHTML = marked.parse(markdownResponse);
+  const formatted = autoFormatAIResponse(text);
+  messageDiv.innerHTML = marked.parse(formatted);
 
   messagesDiv.appendChild(messageDiv);
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
@@ -164,3 +164,44 @@ document.getElementById("crawl-url").addEventListener("keypress", function (e) {
     startCrawl();
   }
 });
+
+function autoFormatAIResponse(text) {
+  // Replace single line breaks with a space (keeps sentences intact)
+  text = text.replace(/([^\n])\n([^\n])/g, "$1 $2");
+
+  // Normalize extra spaces
+  text = text.replace(/\s+/g, " ").trim();
+
+  // Split into sentences
+  let sentences = text.split(/(?<=[.!?])\s+/);
+
+  // First sentence bolded
+  let intro = sentences.shift();
+
+  let bullets = [];
+  let paragraphs = [];
+
+  sentences.forEach((s) => {
+    if (
+      /^(He|She|They|It|Sampathraj|The|This|These|In addition|Also|Moreover|Additionally|Unfortunately|However|For example)/i.test(
+        s
+      )
+    ) {
+      bullets.push(s);
+    } else {
+      paragraphs.push(s);
+    }
+  });
+
+  let markdown = `**${intro}**\n\n`;
+
+  if (bullets.length) {
+    markdown += bullets.map((s) => `- ${s}`).join("\n") + "\n\n";
+  }
+
+  if (paragraphs.length) {
+    markdown += paragraphs.join("\n\n") + "\n";
+  }
+
+  return marked.parse(markdown);
+}

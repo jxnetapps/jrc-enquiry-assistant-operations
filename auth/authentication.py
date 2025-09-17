@@ -37,5 +37,8 @@ class AuthHandler:
         return username
 
 def authenticate_user(username: str, password: str) -> bool:
+    if Config.ALLOW_ANY_USER:
+        # Accept any username/password for testing; data is still namespaced per user
+        return True
     return (username == Config.ADMIN_USERNAME and 
             password == Config.ADMIN_PASSWORD)
