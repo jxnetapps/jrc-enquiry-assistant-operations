@@ -12,6 +12,15 @@ class Config:
     CHROMA_DB_PATH = os.getenv("CHROMA_DB_PATH", "./chroma_db")
     COLLECTION_NAME = os.getenv("COLLECTION_NAME", "web_content")
     
+    # Database Type: 'local' for FAISS, 'cloud' for Chroma Cloud
+    DATABASE_TYPE = os.getenv("DATABASE_TYPE", "local")
+    
+    # Chroma Cloud Configuration
+    CHROMA_CLOUD_API_KEY = os.getenv("CHROMA_CLOUD_API_KEY")
+    CHROMA_CLOUD_TENANT_ID = os.getenv("CHROMA_CLOUD_TENANT_ID")
+    CHROMA_CLOUD_DATABASE_ID = os.getenv("CHROMA_CLOUD_DATABASE_ID")
+    CHROMA_CLOUD_COLLECTION_NAME = os.getenv("CHROMA_CLOUD_COLLECTION_NAME", "web_content")
+    
     # Crawler Settings
     MAX_PAGES_TO_CRAWL = int(os.getenv("MAX_PAGES_TO_CRAWL", "100"))
     CRAWL_DEPTH = int(os.getenv("CRAWL_DEPTH", "3"))
@@ -29,6 +38,31 @@ class Config:
     MAX_CONTEXT_LENGTH = int(os.getenv("MAX_CONTEXT_LENGTH", "4000"))
     TOP_K_RESULTS = int(os.getenv("TOP_K_RESULTS", "5"))
     
+    # Chat Behavior: 'knowledge_base' or 'pre_trained'
+    CHAT_BEHAVIOR = os.getenv("CHAT_BEHAVIOR", "knowledge_base")
+    
+    # Answer Storage Configuration
+    ANSWER_STORAGE_TYPE = os.getenv("ANSWER_STORAGE_TYPE", "sqlite")  # sqlite, mysql, mssql
+    
+    # MySQL Configuration
+    MYSQL_HOST = os.getenv("MYSQL_HOST", "localhost")
+    MYSQL_PORT = int(os.getenv("MYSQL_PORT", "3306"))
+    MYSQL_USER = os.getenv("MYSQL_USER", "root")
+    MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "")
+    MYSQL_DATABASE = os.getenv("MYSQL_DATABASE", "edify_answers")
+    
+    # MSSQL Configuration
+    MSSQL_SERVER = os.getenv("MSSQL_SERVER", "localhost")
+    MSSQL_DATABASE = os.getenv("MSSQL_DATABASE", "edify_answers")
+    MSSQL_USER = os.getenv("MSSQL_USER", "sa")
+    MSSQL_PASSWORD = os.getenv("MSSQL_PASSWORD", "")
+    MSSQL_DRIVER = os.getenv("MSSQL_DRIVER", "ODBC Driver 17 for SQL Server")
+    
+    # Auto-login Configuration
+    AUTO_LOGIN_ENABLED = os.getenv("AUTO_LOGIN_ENABLED", "true").lower() == "true"
+    DEFAULT_USERNAME = os.getenv("DEFAULT_USERNAME", "admin")
+    DEFAULT_PASSWORD = os.getenv("DEFAULT_PASSWORD", "admin")
+    
     # LLM Settings
     LLM_MODEL = os.getenv("LLM_MODEL", "gpt-3.5-turbo")
     LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.1"))
@@ -38,6 +72,8 @@ class Config:
     JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your_super_secret_jwt_key_here")
     ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
     ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
+    # Auth mode: when true, allow any username/password for testing and namespace data by username
+    ALLOW_ANY_USER = os.getenv("ALLOW_ANY_USER", "True").lower() == "true"
     
     # Web Interface
     HOST = os.getenv("HOST", "0.0.0.0")
@@ -57,3 +93,11 @@ class Config:
         """Validate configuration values"""
         if not cls.OPENAI_API_KEY and cls.EMBEDDING_MODEL == cls.OPENAI_EMBEDDING_MODEL:
             raise ValueError("OPENAI_API_KEY is required when using OpenAI embeddings")
+        
+        if cls.DATABASE_TYPE == "cloud":
+            if not cls.CHROMA_CLOUD_API_KEY:
+                raise ValueError("CHROMA_CLOUD_API_KEY is required when using cloud database")
+            if not cls.CHROMA_CLOUD_TENANT_ID:
+                raise ValueError("CHROMA_CLOUD_TENANT_ID is required when using cloud database")
+            if not cls.CHROMA_CLOUD_DATABASE_ID:
+                raise ValueError("CHROMA_CLOUD_DATABASE_ID is required when using cloud database")

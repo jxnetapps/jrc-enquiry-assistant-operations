@@ -11,14 +11,18 @@
         <header>
             <h1>Web ChatBot</h1>
             <p>Ask questions about crawled web content</p>
+            <div class="login-container">
+                <button onclick="login()" id="login-btn" style="display: none;">Login</button>
+            </div>
         </header>
 
-        <div class="chat-container">
+        <div class="chat-container" id="chat-container" style="display: none;">
             <div id="chat-messages" class="chat-messages"></div>
             
             <div class="input-container">
                 <input type="text" id="message-input" placeholder="Type your question..." />
                 <button onclick="sendMessage()">Send</button>
+                <button onclick="resetChat()" class="reset-chat-btn">Reset Chat</button>
             </div>
         </div>
 
@@ -29,6 +33,12 @@
                 <button onclick="startCrawl()">Start Crawl</button>
             </div>
             <div id="crawl-status"></div>
+
+            <div class="upload-form" style="margin-top:16px;">
+                <input type="file" id="upload-files" multiple accept=".pdf,.docx,.txt" />
+                <button onclick="uploadDocs()">Upload Documents</button>
+            </div>
+            <div id="upload-status"></div>
         </div>
     </div>
 

@@ -8,15 +8,18 @@ except Exception:  # pragma: no cover
     import openai  # type: ignore
     _OPENAI_V1 = False
 from embedding.embedding_generator import EmbeddingGenerator
-from database.vector_db import VectorDB
+from database.db_factory import DatabaseFactory
 from config import Config
+from chatbot.chat_states import PreTrainedChatFlow
+from chatbot.session_manager import session_manager
 
 logger = logging.getLogger(__name__)
 
 class ChatBot:
-    def __init__(self):
+    def __init__(self, user_namespace: str = None):
         self.embedding_generator = EmbeddingGenerator()
-        self.vector_db = VectorDB()
+        self.vector_db = DatabaseFactory.create_vector_db(user_namespace=user_namespace)
+        self.user_namespace = user_namespace
         self.setup_openai()
         
     def setup_openai(self):
@@ -135,7 +138,79 @@ Answer:"""
         response += "\nWould you like me to search for more specific information?"
         return response
     
-    def chat(self, query: str) -> str:
-        """Main chat method"""
-        context_docs = self.get_relevant_context(query)
-        return self.generate_llm_response(query, context_docs)
+    def chat(self, query: str, user_id: str = "default") -> Dict[str, any]:
+        """Main chat method that handles both knowledge_base and pre_trained modes"""
+        if Config.CHAT_BEHAVIOR == "pre_trained":
+            return self._handle_pre_trained_chat(query, user_id)
+        else:
+            return self._handle_knowledge_base_chat(query)
+    
+    def _handle_pre_trained_chat(self, query: str, user_id: str) -> Dict[str, any]:
+        """Handle pre_trained chat behavior with state management"""
+        try:
+            # Get the persistent flow for this user
+            pre_trained_flow = session_manager.get_flow_for_user(user_id)
+            
+            # Process message through the predefined flow
+            flow_response = pre_trained_flow.process_message(user_id, query)
+            
+            # If it's a knowledge query, use the knowledge base
+            if flow_response.get("response") == "knowledge_query":
+                knowledge_response = self._handle_knowledge_base_chat(query)
+                return {
+                    "response": knowledge_response["response"],
+                    "mode": "pre_trained",
+                    "state": flow_response["state"],
+                    "collected_data": flow_response.get("collected_data", {}),
+                    "requires_input": False
+                }
+            else:
+                return {
+                    "response": flow_response["response"],
+                    "mode": "pre_trained",
+                    "state": flow_response["state"],
+                    "options": flow_response.get("options", []),
+                    "collected_data": flow_response.get("collected_data", {}),
+                    "requires_input": flow_response.get("requires_input", True),
+                    "conversation_complete": flow_response.get("conversation_complete", False)
+                }
+        except Exception as e:
+            logger.error(f"Error in pre_trained chat: {e}")
+            return {
+                "response": "I'm sorry, I encountered an error. Let's start over.",
+                "mode": "pre_trained",
+                "state": "error",
+                "requires_input": True,
+                "error": True
+            }
+    
+    def _handle_knowledge_base_chat(self, query: str) -> Dict[str, any]:
+        """Handle knowledge_base chat behavior (original functionality)"""
+        try:
+            context_docs = self.get_relevant_context(query)
+            response = self.generate_llm_response(query, context_docs)
+            return {
+                "response": response,
+                "mode": "knowledge_base",
+                "context_docs": len(context_docs),
+                "requires_input": True
+            }
+        except Exception as e:
+            logger.error(f"Error in knowledge_base chat: {e}")
+            return {
+                "response": "I'm sorry, I couldn't process your request. Please try again.",
+                "mode": "knowledge_base",
+                "requires_input": True,
+                "error": True
+            }
+    
+    def reset_chat_session(self, user_id: str) -> None:
+        """Reset a user's chat session (for pre_trained mode)"""
+        if Config.CHAT_BEHAVIOR == "pre_trained":
+            session_manager.reset_user_session(user_id)
+    
+    def get_session_data(self, user_id: str) -> Optional[Dict[str, any]]:
+        """Get collected data for a user session (for pre_trained mode)"""
+        if Config.CHAT_BEHAVIOR == "pre_trained":
+            return session_manager.get_user_session_data(user_id)
+        return None
