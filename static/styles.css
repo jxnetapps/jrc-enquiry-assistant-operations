@@ -164,4 +164,70 @@ button:hover {
     color: #333;
   }
   
+  /* Chat Options Styling */
+  .chat-options {
+    margin-top: 10px;
+    padding: 10px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid #007bff;
+  }
+  
+  .option-button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    margin: 4px 8px 4px 0;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.2s;
+  }
+  
+  .option-button:hover {
+    background-color: #0056b3;
+  }
+  
+  .option-button:active {
+    background-color: #004085;
+  }
+  
+  /* Conversation Summary Styling */
+  .conversation-summary {
+    margin-top: 15px;
+    padding: 15px;
+    background-color: #e8f5e8;
+    border-radius: 8px;
+    border-left: 4px solid #28a745;
+  }
+  
+  .conversation-summary h3 {
+    margin: 0 0 10px 0;
+    color: #155724;
+    font-size: 16px;
+  }
+  
+  .conversation-summary p {
+    margin: 5px 0;
+    color: #155724;
+    font-size: 14px;
+  }
+  
+  /* Reset Chat Button */
+  .reset-chat-btn {
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    margin-left: 10px;
+  }
+  
+  .reset-chat-btn:hover {
+    background-color: #c82333;
+  }
+  
   

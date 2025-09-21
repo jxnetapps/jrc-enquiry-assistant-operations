@@ -38,6 +38,31 @@ class Config:
     MAX_CONTEXT_LENGTH = int(os.getenv("MAX_CONTEXT_LENGTH", "4000"))
     TOP_K_RESULTS = int(os.getenv("TOP_K_RESULTS", "5"))
     
+    # Chat Behavior: 'knowledge_base' or 'pre_trained'
+    CHAT_BEHAVIOR = os.getenv("CHAT_BEHAVIOR", "knowledge_base")
+    
+    # Answer Storage Configuration
+    ANSWER_STORAGE_TYPE = os.getenv("ANSWER_STORAGE_TYPE", "sqlite")  # sqlite, mysql, mssql
+    
+    # MySQL Configuration
+    MYSQL_HOST = os.getenv("MYSQL_HOST", "localhost")
+    MYSQL_PORT = int(os.getenv("MYSQL_PORT", "3306"))
+    MYSQL_USER = os.getenv("MYSQL_USER", "root")
+    MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "")
+    MYSQL_DATABASE = os.getenv("MYSQL_DATABASE", "edify_answers")
+    
+    # MSSQL Configuration
+    MSSQL_SERVER = os.getenv("MSSQL_SERVER", "localhost")
+    MSSQL_DATABASE = os.getenv("MSSQL_DATABASE", "edify_answers")
+    MSSQL_USER = os.getenv("MSSQL_USER", "sa")
+    MSSQL_PASSWORD = os.getenv("MSSQL_PASSWORD", "")
+    MSSQL_DRIVER = os.getenv("MSSQL_DRIVER", "ODBC Driver 17 for SQL Server")
+    
+    # Auto-login Configuration
+    AUTO_LOGIN_ENABLED = os.getenv("AUTO_LOGIN_ENABLED", "true").lower() == "true"
+    DEFAULT_USERNAME = os.getenv("DEFAULT_USERNAME", "admin")
+    DEFAULT_PASSWORD = os.getenv("DEFAULT_PASSWORD", "admin")
+    
     # LLM Settings
     LLM_MODEL = os.getenv("LLM_MODEL", "gpt-3.5-turbo")
     LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.1"))

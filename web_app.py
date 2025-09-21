@@ -14,6 +14,7 @@ from crawler.web_crawler import WebCrawler
 from crawler.content_processor import ContentProcessor
 from embedding.embedding_generator import EmbeddingGenerator
 from database.db_factory import DatabaseFactory
+from database.answer_storage import answer_storage
 from chatbot.chat_interface import ChatBot
 from auth.authentication import AuthHandler, authenticate_user
 from utils.scheduler import Scheduler
@@ -51,6 +52,7 @@ class LoginRequest(BaseModel):
 
 class ChatRequest(BaseModel):
     message: str
+    user_id: Optional[str] = None
 
 class CrawlRequest(BaseModel):
     url: str
@@ -59,7 +61,14 @@ class CrawlRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     response: str
-    sources: List[dict]
+    sources: List[dict] = []
+    mode: Optional[str] = None
+    state: Optional[str] = None
+    options: List[str] = []
+    collected_data: Optional[dict] = None
+    requires_input: bool = True
+    conversation_complete: bool = False
+    error: bool = False
 
 class UploadResponse(BaseModel):
     status: str
@@ -77,12 +86,67 @@ async def login(login_data: LoginRequest):
         return {"access_token": token, "token_type": "bearer"}
     raise HTTPException(status_code=401, detail="Invalid credentials")
 
+@app.post("/api/auto-login")
+async def auto_login():
+    """Auto-login with default user"""
+    try:
+        if not Config.AUTO_LOGIN_ENABLED:
+            raise HTTPException(status_code=403, detail="Auto-login is disabled")
+        
+        user = authenticate_user(Config.DEFAULT_USERNAME, Config.DEFAULT_PASSWORD)
+        if user:
+            token = auth_handler.create_token(Config.DEFAULT_USERNAME)
+            
+            # If pre_trained mode, get the first question
+            first_question = ""
+            if Config.CHAT_BEHAVIOR == "pre_trained":
+                try:
+                    chatbot = get_chatbot_for_user(Config.DEFAULT_USERNAME)
+                    chat_response = chatbot.chat("Hello", "auto_login_user")
+                    first_question = chat_response.get("response", "")
+                except Exception as e:
+                    logger.error(f"Error getting first question: {e}")
+                    first_question = "Are you a new or existing parent?"
+            
+            return {
+                "access_token": token, 
+                "token_type": "bearer",
+                "username": Config.DEFAULT_USERNAME,
+                "welcome_message": "Hello, Welcome to Edify Education!!!",
+                "first_question": first_question,
+                "chat_mode": Config.CHAT_BEHAVIOR
+            }
+        else:
+            raise HTTPException(status_code=401, detail="Auto-login failed")
+    except Exception as e:
+        logger.error(f"Auto-login error: {e}")
+        raise HTTPException(status_code=500, detail="Auto-login failed")
+
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat_endpoint(chat_data: ChatRequest, current_user: str = Depends(auth_handler.get_current_user)):
     try:
         chatbot = get_chatbot_for_user(current_user)
-        response = chatbot.chat(chat_data.message)
-        return ChatResponse(response=response, sources=[])
+        user_id = chat_data.user_id or current_user
+        chat_response = chatbot.chat(chat_data.message, user_id)
+        
+        # Store collected data if available
+        collected_data = chat_response.get("collected_data")
+        if collected_data and chat_response.get("mode") == "pre_trained":
+            session_id = f"{current_user}_{user_id}"
+            answer_storage.store_answers(current_user, session_id, collected_data)
+        
+        # Convert the new response format to ChatResponse
+        return ChatResponse(
+            response=chat_response["response"],
+            sources=[],
+            mode=chat_response.get("mode"),
+            state=chat_response.get("state"),
+            options=chat_response.get("options", []),
+            collected_data=chat_response.get("collected_data"),
+            requires_input=chat_response.get("requires_input", True),
+            conversation_complete=chat_response.get("conversation_complete", False),
+            error=chat_response.get("error", False)
+        )
     except Exception as e:
         logger.error(f"Chat error: {e}")
         raise HTTPException(status_code=500, detail="Error processing message")
@@ -167,6 +231,48 @@ async def get_stats(current_user: str = Depends(auth_handler.get_current_user)):
         return {"document_count": count}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/chat/reset")
+async def reset_chat_session(user_id: str, current_user: str = Depends(auth_handler.get_current_user)):
+    """Reset a user's chat session (for pre_trained mode)"""
+    try:
+        chatbot = get_chatbot_for_user(current_user)
+        chatbot.reset_chat_session(user_id)
+        return {"status": "success", "message": "Chat session reset"}
+    except Exception as e:
+        logger.error(f"Reset chat error: {e}")
+        raise HTTPException(status_code=500, detail="Error resetting chat session")
+
+@app.get("/api/chat/session/{user_id}")
+async def get_chat_session(user_id: str, current_user: str = Depends(auth_handler.get_current_user)):
+    """Get collected data for a user session (for pre_trained mode)"""
+    try:
+        chatbot = get_chatbot_for_user(current_user)
+        session_data = chatbot.get_session_data(user_id)
+        return {"session_data": session_data}
+    except Exception as e:
+        logger.error(f"Get session error: {e}")
+        raise HTTPException(status_code=500, detail="Error getting session data")
+
+@app.get("/api/answers")
+async def get_stored_answers(current_user: str = Depends(auth_handler.get_current_user), limit: int = 100):
+    """Get all stored answers (admin only)"""
+    try:
+        answers = answer_storage.get_all_answers(limit)
+        return {"answers": answers, "count": len(answers)}
+    except Exception as e:
+        logger.error(f"Get answers error: {e}")
+        raise HTTPException(status_code=500, detail="Error getting stored answers")
+
+@app.get("/api/answers/{user_id}/{session_id}")
+async def get_user_answers(user_id: str, session_id: str, current_user: str = Depends(auth_handler.get_current_user)):
+    """Get stored answers for a specific user session"""
+    try:
+        answers = answer_storage.get_answers(user_id, session_id)
+        return {"answers": answers}
+    except Exception as e:
+        logger.error(f"Get user answers error: {e}")
+        raise HTTPException(status_code=500, detail="Error getting user answers")
 
 # Health check
 @app.get("/health")
