@@ -104,6 +104,10 @@ A sophisticated chatbot that crawls websites, processes content, and provides in
 
 ### 1. Test Chat Modes
 
+```
+& C:/Dev/Trainings/python/web-scrapper/web-chatbot-enhanced/venv/Scripts/Activate.ps1
+```
+
 Run the comprehensive chat mode test:
 ```bash
 python test_chat_modes.py

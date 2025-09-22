@@ -58,10 +58,6 @@ class Config:
     MSSQL_PASSWORD = os.getenv("MSSQL_PASSWORD", "")
     MSSQL_DRIVER = os.getenv("MSSQL_DRIVER", "ODBC Driver 17 for SQL Server")
     
-    # Auto-login Configuration
-    AUTO_LOGIN_ENABLED = os.getenv("AUTO_LOGIN_ENABLED", "true").lower() == "true"
-    DEFAULT_USERNAME = os.getenv("DEFAULT_USERNAME", "admin")
-    DEFAULT_PASSWORD = os.getenv("DEFAULT_PASSWORD", "admin")
     
     # LLM Settings
     LLM_MODEL = os.getenv("LLM_MODEL", "gpt-3.5-turbo")

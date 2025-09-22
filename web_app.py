@@ -5,9 +5,12 @@ from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import asyncio
-from typing import List, Optional
+from typing import List, Optional, TypeVar, Generic
 import logging
 from fastapi import UploadFile, File
+import json
+
+T = TypeVar('T')
 
 from config import Config
 from crawler.web_crawler import WebCrawler
@@ -41,14 +44,17 @@ templates = Jinja2Templates(directory="templates")
 
 # Initialize components
 auth_handler = AuthHandler()
-def get_chatbot_for_user(username: str) -> ChatBot:
-    return ChatBot(user_namespace=username)
+def get_chatbot_for_user(user_id: str) -> ChatBot:
+    return ChatBot(user_namespace=user_id)
 scheduler = Scheduler()
 
 # Pydantic models
 class LoginRequest(BaseModel):
     username: str
     password: str
+
+class TokenRequest(BaseModel):
+    user_id: str
 
 class ChatRequest(BaseModel):
     message: str
@@ -74,58 +80,110 @@ class UploadResponse(BaseModel):
     status: str
     chunks_processed: int
 
+class ApiResponse(BaseModel, Generic[T]):
+    success: bool
+    message: Optional[str] = None
+    access_token: Optional[str] = None
+    user_id: Optional[str] = None
+    data: Optional[T] = None
+
 # Routes
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
-@app.post("/api/login")
+@app.post("/api/login", response_model=ApiResponse)
 async def login(login_data: LoginRequest):
-    if authenticate_user(login_data.username, login_data.password):
-        token = auth_handler.create_token(login_data.username)
-        return {"access_token": token, "token_type": "bearer"}
-    raise HTTPException(status_code=401, detail="Invalid credentials")
-
-@app.post("/api/auto-login")
-async def auto_login():
-    """Auto-login with default user"""
     try:
-        if not Config.AUTO_LOGIN_ENABLED:
-            raise HTTPException(status_code=403, detail="Auto-login is disabled")
-        
-        user = authenticate_user(Config.DEFAULT_USERNAME, Config.DEFAULT_PASSWORD)
-        if user:
-            token = auth_handler.create_token(Config.DEFAULT_USERNAME)
-            
-            # If pre_trained mode, get the first question
-            first_question = ""
-            if Config.CHAT_BEHAVIOR == "pre_trained":
-                try:
-                    chatbot = get_chatbot_for_user(Config.DEFAULT_USERNAME)
-                    chat_response = chatbot.chat("Hello", "auto_login_user")
-                    first_question = chat_response.get("response", "")
-                except Exception as e:
-                    logger.error(f"Error getting first question: {e}")
-                    first_question = "Are you a new or existing parent?"
-            
-            return {
-                "access_token": token, 
-                "token_type": "bearer",
-                "username": Config.DEFAULT_USERNAME,
-                "welcome_message": "Hello, Welcome to Edify Education!!!",
-                "first_question": first_question,
-                "chat_mode": Config.CHAT_BEHAVIOR
-            }
+        user_id = authenticate_user(login_data.username, login_data.password)
+        if user_id:
+            token = auth_handler.create_token(user_id)
+            return ApiResponse(
+                success=True,
+                message="Login successful",
+                access_token=token,
+                user_id=user_id
+            )
         else:
-            raise HTTPException(status_code=401, detail="Auto-login failed")
+            return ApiResponse(
+                success=False,
+                message="Invalid credentials"
+            )
     except Exception as e:
-        logger.error(f"Auto-login error: {e}")
-        raise HTTPException(status_code=500, detail="Auto-login failed")
+        logger.error(f"Login error: {e}")
+        return ApiResponse(
+            success=False,
+            message="Login failed"
+        )
 
-@app.post("/api/chat", response_model=ChatResponse)
-async def chat_endpoint(chat_data: ChatRequest, current_user: str = Depends(auth_handler.get_current_user)):
+@app.post("/api/token", response_model=ApiResponse)
+async def create_token(token_data: TokenRequest):
+    """Create JWT token for a valid user_id"""
     try:
-        chatbot = get_chatbot_for_user(current_user)
+        from auth.user_store import user_store
+        
+        # Validate that user_id exists in the user store
+        user_data = user_store.get_user_by_id(token_data.user_id)
+        if not user_data:
+            return ApiResponse(
+                success=False,
+                message="User not found"
+            )
+        
+        # Create JWT token for the valid user_id
+        token = auth_handler.create_token(token_data.user_id)
+        
+        return ApiResponse(
+            success=True,
+            message="Token created successfully",
+            access_token=token,
+            user_id=token_data.user_id,
+            data={"username": user_data["user_name"]}
+        )
+        
+    except Exception as e:
+        logger.error(f"Token creation error: {e}")
+        return ApiResponse(
+            success=False,
+            message="Error creating token"
+        )
+
+
+@app.post("/api/chat", response_model=ApiResponse[ChatResponse])
+async def chat_endpoint(request: Request, current_user: str = Depends(auth_handler.get_current_user)):
+    try:
+        # Get the raw request body
+        body = await request.body()
+        
+        # Try to parse as JSON
+        try:
+            if isinstance(body, bytes):
+                body_str = body.decode('utf-8')
+            else:
+                body_str = body
+            
+            # Try to parse as JSON string first (for external API calls)
+            if isinstance(body_str, str) and body_str.startswith('{'):
+                try:
+                    data = json.loads(body_str)
+                except json.JSONDecodeError:
+                    # If it's not a valid JSON string, try to parse as regular JSON
+                    data = await request.json()
+            else:
+                # Parse as regular JSON
+                data = await request.json()
+        except Exception as json_error:
+            logger.error(f"JSON parsing error: {json_error}")
+            raise HTTPException(status_code=400, detail="Invalid JSON format")
+        
+        # Validate the parsed data against ChatRequest model
+        try:
+            chat_data = ChatRequest(**data)
+        except Exception as validation_error:
+            logger.error(f"Validation error: {validation_error}")
+            raise HTTPException(status_code=400, detail=f"Invalid request format: {str(validation_error)}")
+        
+        chatbot = get_chatbot_for_user(current_user)  # current_user is now user_id
         user_id = chat_data.user_id or current_user
         chat_response = chatbot.chat(chat_data.message, user_id)
         
@@ -136,7 +194,7 @@ async def chat_endpoint(chat_data: ChatRequest, current_user: str = Depends(auth
             answer_storage.store_answers(current_user, session_id, collected_data)
         
         # Convert the new response format to ChatResponse
-        return ChatResponse(
+        chat_data = ChatResponse(
             response=chat_response["response"],
             sources=[],
             mode=chat_response.get("mode"),
@@ -147,9 +205,20 @@ async def chat_endpoint(chat_data: ChatRequest, current_user: str = Depends(auth
             conversation_complete=chat_response.get("conversation_complete", False),
             error=chat_response.get("error", False)
         )
+        
+        return ApiResponse(
+            success=True,
+            message="Chat response generated successfully",
+            data=chat_data
+        )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Chat error: {e}")
-        raise HTTPException(status_code=500, detail="Error processing message")
+        return ApiResponse(
+            success=False,
+            message="Error processing message"
+        )
 
 @app.post("/api/crawl")
 async def crawl_website(crawl_data: CrawlRequest, current_user: str = Depends(auth_handler.get_current_user)):
@@ -162,7 +231,7 @@ async def crawl_website(crawl_data: CrawlRequest, current_user: str = Depends(au
         )
         processor = ContentProcessor()
         embedding_generator = EmbeddingGenerator()
-        vector_db = DatabaseFactory.create_vector_db(user_namespace=current_user)
+        vector_db = DatabaseFactory.create_vector_db(user_namespace=current_user)  # current_user is now user_id
         
         pages = await crawler.crawl(crawl_data.url)
         processed_chunks = processor.process_pages(pages)
@@ -189,7 +258,7 @@ async def upload_documents(files: List[UploadFile] = File(...), current_user: st
     try:
         processor = ContentProcessor()
         embedding_generator = EmbeddingGenerator()
-        vector_db = DatabaseFactory.create_vector_db(user_namespace=current_user)
+        vector_db = DatabaseFactory.create_vector_db(user_namespace=current_user)  # current_user is now user_id
 
         processed_chunks: List[dict] = []
         for f in files:
@@ -226,7 +295,7 @@ async def upload_documents(files: List[UploadFile] = File(...), current_user: st
 @app.get("/api/stats")
 async def get_stats(current_user: str = Depends(auth_handler.get_current_user)):
     try:
-        vector_db = DatabaseFactory.create_vector_db(user_namespace=current_user)
+        vector_db = DatabaseFactory.create_vector_db(user_namespace=current_user)  # current_user is now user_id
         count = vector_db.get_collection_stats()
         return {"document_count": count}
     except Exception as e:
@@ -274,10 +343,39 @@ async def get_user_answers(user_id: str, session_id: str, current_user: str = De
         logger.error(f"Get user answers error: {e}")
         raise HTTPException(status_code=500, detail="Error getting user answers")
 
+@app.get("/api/user/info", response_model=ApiResponse)
+async def get_user_info(current_user: str = Depends(auth_handler.get_current_user)):
+    """Get current user information"""
+    try:
+        from auth.user_store import user_store
+        user_data = user_store.get_user_by_id(current_user)
+        if user_data:
+            return ApiResponse(
+                success=True,
+                message="User information retrieved successfully",
+                user_id=user_data["user_id"],
+                data={"username": user_data["user_name"]}
+            )
+        else:
+            return ApiResponse(
+                success=False,
+                message="User not found"
+            )
+    except Exception as e:
+        logger.error(f"Get user info error: {e}")
+        return ApiResponse(
+            success=False,
+            message="Error getting user information"
+        )
+
 # Health check
-@app.get("/health")
+@app.get("/health", response_model=ApiResponse)
 async def health_check():
-    return {"status": "healthy", "version": "2.0"}
+    return ApiResponse(
+        success=True,
+        message="Service is healthy",
+        data={"status": "healthy", "version": "2.0"}
+    )
 
 # Start scheduler if enabled
 if Config.SCHEDULE_CRAWL:

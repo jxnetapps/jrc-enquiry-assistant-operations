@@ -1,51 +1,42 @@
 let authToken = null;
-let currentUserId = "user_" + Math.random().toString(36).substr(2, 9);
+let currentUserId = null;
 let chatMode = null;
-let isAutoLoggedIn = false; // Track auto-login status
 
-// Auto-login function
-async function autoLogin() {
-  try {
-    const response = await fetch("/api/auto-login", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
+// Local storage keys
+const TOKEN_KEY = 'chatbot_auth_token';
+const USER_ID_KEY = 'chatbot_user_id';
 
-    if (response.ok) {
-      const data = await response.json();
-      authToken = data.access_token;
-      isAutoLoggedIn = true;
-      
-      // Show welcome message and first question together
-      if (data.welcome_message && data.first_question) {
-        const combinedMessage = `${data.welcome_message}\n\n${data.first_question}`;
-        addMessage("bot", combinedMessage, {
-          mode: data.chat_mode,
-          state: "parent_type",
-          options: ["New Parent", "Existing Parent"],
-          requires_input: true
-        });
-      } else if (data.welcome_message) {
-        addMessage("bot", data.welcome_message);
-        // Start pre-trained conversation if no first question provided
-        startPreTrainedConversation();
-      }
-      
-      // Hide login button and show chat interface
-      document.getElementById("login-btn").style.display = "none";
-      document.getElementById("chat-container").style.display = "block";
-      
-      return true;
-    } else {
-      console.log("Auto-login failed, showing manual login");
-      return false;
-    }
-  } catch (error) {
-    console.error("Auto-login error:", error);
-    return false;
-  }
+// Local storage management functions
+function saveAuthData(token, userId) {
+  localStorage.setItem(TOKEN_KEY, token);
+  localStorage.setItem(USER_ID_KEY, userId);
+  authToken = token;
+  currentUserId = userId;
+}
+
+function loadAuthData() {
+  authToken = localStorage.getItem(TOKEN_KEY);
+  currentUserId = localStorage.getItem(USER_ID_KEY);
+  return authToken && currentUserId;
+}
+
+function clearAuthData() {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_ID_KEY);
+  authToken = null;
+  currentUserId = null;
+}
+
+function logout() {
+  clearAuthData();
+  // Clear chat messages
+  document.getElementById("chat-messages").innerHTML = "";
+  // Show login button and hide chat
+  document.getElementById("login-btn").style.display = "block";
+  document.getElementById("chat-container").style.display = "none";
+  // Update login button text
+  document.getElementById("login-btn").textContent = "Login";
+  alert("Logged out successfully");
 }
 
 // Start pre-trained conversation
@@ -69,21 +60,39 @@ async function login() {
 
     if (response.ok) {
       const data = await response.json();
-      authToken = data.access_token;
-      alert("Login successful!");
-      return true;
+      
+      // Check if login was successful using ApiResponse format
+      if (data.success && data.access_token && data.user_id) {
+        // Save auth data to local storage
+        saveAuthData(data.access_token, data.user_id);
+        
+        // Update UI to show chat interface
+        document.getElementById("login-btn").style.display = "none";
+        document.getElementById("chat-container").style.display = "block";
+        document.getElementById("login-btn").textContent = "Logout";
+        document.getElementById("login-btn").onclick = logout;
+        
+        alert(`Login successful! Welcome ${username}`);
+        return true;
+      } else {
+        alert(data.message || "Login failed");
+        return false;
+      }
     } else {
-      alert("Login failed");
+      const errorData = await response.json();
+      alert(errorData.message || "Login failed");
       return false;
     }
   } catch (error) {
     console.error("Login error:", error);
+    alert("Login error: " + error.message);
     return false;
   }
 }
 
 async function sendMessage() {
-  if (!authToken) {
+  // Load auth data from local storage first
+  if (!loadAuthData()) {
     if (!(await login())) return;
   }
 
@@ -105,30 +114,38 @@ async function sendMessage() {
       },
       body: JSON.stringify({ 
         message: message,
-        user_id: currentUserId 
+        user_id: currentUserId  // Use stored user_id instead of temporary one
       }),
     });
 
     if (response.ok) {
       const data = await response.json();
-      chatMode = data.mode;
       
-      // Add bot response with enhanced data
-      addMessage("bot", data.response, {
-        mode: data.mode,
-        state: data.state,
-        options: data.options,
-        collected_data: data.collected_data,
-        requires_input: data.requires_input,
-        conversation_complete: data.conversation_complete
-      });
-      
-      // Handle conversation completion
-      if (data.conversation_complete) {
-        showConversationComplete(data.collected_data);
+      // Handle ApiResponse format
+      if (data.success && data.data) {
+        const chatData = data.data;
+        chatMode = chatData.mode;
+        
+        // Add bot response with enhanced data
+        addMessage("bot", chatData.response, {
+          mode: chatData.mode,
+          state: chatData.state,
+          options: chatData.options,
+          collected_data: chatData.collected_data,
+          requires_input: chatData.requires_input,
+          conversation_complete: chatData.conversation_complete
+        });
+        
+        // Handle conversation completion
+        if (chatData.conversation_complete) {
+          showConversationComplete(chatData.collected_data);
+        }
+      } else {
+        addMessage("bot", data.message || "Error: Could not get response");
       }
     } else {
-      addMessage("bot", "Error: Could not get response");
+      const errorData = await response.json();
+      addMessage("bot", errorData.message || "Error: Could not get response");
     }
   } catch (error) {
     console.error("Chat error:", error);
@@ -137,7 +154,7 @@ async function sendMessage() {
 }
 
 async function startCrawl() {
-  if (!authToken) {
+  if (!loadAuthData()) {
     if (!(await login())) return;
   }
 
@@ -171,7 +188,7 @@ async function startCrawl() {
 }
 
 async function uploadDocs() {
-  if (!authToken) {
+  if (!loadAuthData()) {
     if (!(await login())) return;
   }
 
@@ -267,12 +284,12 @@ function showConversationComplete(collectedData) {
 
 function resetChat() {
   if (confirm("Are you sure you want to reset the chat?")) {
-    currentUserId = "user_" + Math.random().toString(36).substr(2, 9);
-    chatMode = null;
-    document.getElementById("chat-messages").innerHTML = "";
-    
-    // Reset chat session on server
-    if (authToken) {
+    // Load auth data to get the stored user_id
+    if (loadAuthData()) {
+      chatMode = null;
+      document.getElementById("chat-messages").innerHTML = "";
+      
+      // Reset chat session on server using stored user_id
       fetch("/api/chat/reset", {
         method: "POST",
         headers: {
@@ -281,19 +298,28 @@ function resetChat() {
         },
         body: JSON.stringify({ user_id: currentUserId }),
       });
+    } else {
+      alert("Please login first");
     }
   }
 }
 
 // Initialize page on load
-document.addEventListener("DOMContentLoaded", async function() {
-  // Try auto-login first
-  const autoLoginSuccess = await autoLogin();
-  
-  if (!autoLoginSuccess) {
-    // Show manual login button if auto-login fails
+document.addEventListener("DOMContentLoaded", function() {
+  // Try to load auth data from local storage
+  if (loadAuthData()) {
+    // User is already logged in, show chat interface
+    document.getElementById("login-btn").style.display = "none";
+    document.getElementById("chat-container").style.display = "block";
+    document.getElementById("login-btn").textContent = "Logout";
+    document.getElementById("login-btn").onclick = logout;
+    console.log("User already logged in:", currentUserId);
+  } else {
+    // User needs to login, show login button
     document.getElementById("login-btn").style.display = "block";
     document.getElementById("chat-container").style.display = "none";
+    document.getElementById("login-btn").textContent = "Login";
+    document.getElementById("login-btn").onclick = login;
   }
 });
 
