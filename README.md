@@ -14,6 +14,7 @@ A sophisticated chatbot that crawls websites, processes content, and provides in
 - 🌈 **Web Interface**: Modern FastAPI web app
 - 🎯 **Configurable Chat Behavior**: Switch between knowledge base and predefined question flows
 - 🔄 **State Management**: State-driven conversations for structured interactions
+- 📝 **Chat Inquiry APIs**: Multiple API options for different use cases (see [API Comparison](docs/CHAT_INQUIRY_API_COMPARISON.md))
 
 ## Installation
 
@@ -105,6 +106,8 @@ A sophisticated chatbot that crawls websites, processes content, and provides in
 ### 1. Test Chat Modes
 
 ```
+.\venv\Scripts\activate.ps1
+OR
 & C:/Dev/Trainings/python/web-scrapper/web-chatbot-enhanced/venv/Scripts/Activate.ps1
 ```
 
@@ -209,6 +212,33 @@ python test_database_config.py
 DATABASE_TYPE=cloud
 python test_cloud_config.py
 ```
+
+### 7. Test Chat Inquiry APIs
+
+The system provides three different Chat Inquiry APIs for different use cases:
+
+**Simple API (No Authentication):**
+```bash
+# Test basic CRUD operations
+python test_simple_api.py
+
+# Test delete functionality
+python test_delete_api.py
+```
+
+**Enhanced API (Advanced Features):**
+```bash
+# Test advanced features with pagination, filtering, export
+python test_enhanced_api.py
+```
+
+**Original API (With Authentication):**
+```bash
+# Test authenticated endpoints
+python test_web_app.py
+```
+
+For detailed comparison of all APIs, see [Chat Inquiry API Comparison](docs/CHAT_INQUIRY_API_COMPARISON.md).
 
 ## Troubleshooting
 
