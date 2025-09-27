@@ -463,6 +463,159 @@ class UserRepository:
             logger.error(f"Error getting user stats: {e}")
             return {}
     
+    async def get_users_advanced(self, page: int = 1, page_size: int = 10, 
+                                search: Optional[str] = None, role: Optional[UserRole] = None, 
+                                status: Optional[UserStatus] = None, sort_by: str = "created_at", 
+                                sort_order: str = "desc") -> tuple[List[UserResponse], int]:
+        """Get users with advanced filtering and search."""
+        try:
+            if await self._is_connected():
+                async_session = self.connection.get_async_session()
+                async with async_session() as session:
+                    # Build WHERE conditions
+                    where_conditions = []
+                    params = {}
+                    
+                    if search:
+                        where_conditions.append("(username ILIKE :search OR email ILIKE :search)")
+                        params['search'] = f"%{search}%"
+                    
+                    if role:
+                        where_conditions.append("role = :role")
+                        params['role'] = role.value
+                    
+                    if status:
+                        where_conditions.append("status = :status")
+                        params['status'] = status.value
+                    
+                    where_clause = "WHERE " + " AND ".join(where_conditions) if where_conditions else ""
+                    
+                    # Validate sort_by field
+                    valid_sort_fields = ["username", "email", "role", "status", "created_at", "updated_at", "last_login"]
+                    if sort_by not in valid_sort_fields:
+                        sort_by = "created_at"
+                    
+                    # Validate sort_order
+                    if sort_order.lower() not in ["asc", "desc"]:
+                        sort_order = "desc"
+                    
+                    # Get total count
+                    count_query = f"SELECT COUNT(*) FROM users {where_clause}"
+                    count_result = await session.execute(text(count_query), params)
+                    total_count = count_result.scalar()
+                    
+                    # Get users with pagination
+                    skip = (page - 1) * page_size
+                    params.update({'skip': skip, 'limit': page_size})
+                    
+                    query = f"""
+                        SELECT user_id, username, email, full_name, role, status, 
+                               created_at, updated_at, last_login
+                        FROM users 
+                        {where_clause}
+                        ORDER BY {sort_by} {sort_order.upper()}
+                        LIMIT :limit OFFSET :skip
+                    """
+                    
+                    result = await session.execute(text(query), params)
+                    rows = result.fetchall()
+                    
+                    users = [
+                        UserResponse(
+                            user_id=str(row.user_id),
+                            username=row.username,
+                            email=row.email,
+                            full_name=row.full_name,
+                            role=UserRole(row.role),
+                            status=UserStatus(row.status),
+                            created_at=row.created_at,
+                            updated_at=row.updated_at,
+                            last_login=row.last_login
+                        )
+                        for row in rows
+                    ]
+                    
+                    return users, total_count
+            else:
+                raise Exception("PostgreSQL not connected")
+                
+        except Exception as e:
+            logger.error(f"Error getting users with advanced filtering: {e}")
+            return [], 0
+
+    async def reset_password(self, user_id: str, new_password: str) -> bool:
+        """Reset user password (admin function)."""
+        try:
+            if await self._is_connected():
+                async_session = self.connection.get_async_session()
+                async with async_session() as session:
+                    # Check if user exists
+                    existing_user = await self.get_user_by_id(user_id)
+                    if not existing_user:
+                        return False
+                    
+                    # Hash new password
+                    new_password_hash = await self._hash_password(new_password)
+                    
+                    # Update password
+                    await session.execute(text("""
+                        UPDATE users 
+                        SET password_hash = :password_hash, updated_at = :updated_at
+                        WHERE user_id = :user_id
+                    """), {
+                        'user_id': user_id,
+                        'password_hash': new_password_hash,
+                        'updated_at': datetime.utcnow()
+                    })
+                    
+                    await session.commit()
+                    logger.info(f"Password reset for user: {user_id}")
+                    return True
+            else:
+                raise Exception("PostgreSQL not connected")
+                
+        except Exception as e:
+            logger.error(f"Error resetting password: {e}")
+            return False
+
+    async def toggle_user_status(self, user_id: str) -> bool:
+        """Toggle user status between active and inactive."""
+        try:
+            if await self._is_connected():
+                async_session = self.connection.get_async_session()
+                async with async_session() as session:
+                    # Get current user status
+                    result = await session.execute(text("""
+                        SELECT status FROM users WHERE user_id = :user_id
+                    """), {'user_id': user_id})
+                    
+                    row = result.fetchone()
+                    if not row:
+                        return False
+                    
+                    # Toggle status
+                    new_status = UserStatus.INACTIVE if row.status == UserStatus.ACTIVE.value else UserStatus.ACTIVE
+                    
+                    await session.execute(text("""
+                        UPDATE users 
+                        SET status = :status, updated_at = :updated_at
+                        WHERE user_id = :user_id
+                    """), {
+                        'user_id': user_id,
+                        'status': new_status.value,
+                        'updated_at': datetime.utcnow()
+                    })
+                    
+                    await session.commit()
+                    logger.info(f"Toggled user status: {user_id} -> {new_status.value}")
+                    return True
+            else:
+                raise Exception("PostgreSQL not connected")
+                
+        except Exception as e:
+            logger.error(f"Error toggling user status: {e}")
+            return False
+
     async def _is_connected(self) -> bool:
         """Check if PostgreSQL is connected."""
         return await self.connection.is_connected()

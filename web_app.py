@@ -1,7 +1,4 @@
-from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import TypeVar, Generic, Optional
@@ -17,6 +14,7 @@ from utils.scheduler import Scheduler
 from api.auth_api import router as auth_router
 from api.vector_chat_api import router as vector_chat_router
 from api.unified_chat_inquiry_api import router as unified_chat_inquiry_router
+from api.users_api import router as users_router
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -108,6 +106,14 @@ app = FastAPI(
             },
         },
         {
+            "name": "User Management",
+            "description": "User management and administration",
+            "externalDocs": {
+                "description": "User Management Guide",
+                "url": "https://docs.webchatbot.com/users",
+            },
+        },
+        {
             "name": "Database",
             "description": "Database management and health checks",
             "externalDocs": {
@@ -127,9 +133,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount static files and templates
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
 
 # Initialize components
 scheduler = Scheduler()
@@ -138,31 +141,17 @@ scheduler = Scheduler()
 # Import ApiResponse from models
 from models.chat_inquiry_models import ApiResponse
 
-# Root endpoint
+# Root endpoint - redirect to Swagger docs
 @app.get("/", 
          summary="API Root",
-         description="Welcome to Web ChatBot Enhanced API",
-         tags=["General"],
-         response_model=dict)
+         description="Redirect to Swagger Documentation",
+         tags=["General"])
 async def root():
     """
-    Welcome endpoint that provides basic API information.
+    Root endpoint that redirects to Swagger documentation.
     """
-    return {
-        "message": "Welcome to Web ChatBot Enhanced API",
-        "version": "2.0.0",
-        "status": "running",
-        "documentation": {
-            "swagger_ui": "/docs",
-            "redoc": "/redoc",
-            "openapi_json": "/openapi.json"
-        },
-        "endpoints": {
-            "authentication": "/api/auth",
-            "vector_chat": "/api/vector-chat",
-            "chat_inquiry": "/api/chat-inquiry"
-        }
-    }
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/docs")
 
 # Health check endpoint
 @app.get("/health",
@@ -198,6 +187,17 @@ async def health_check():
             "error": str(e),
             "timestamp": "2024-01-01T00:00:00Z"
         }
+
+# Azure App Service health check endpoint
+@app.get("/health/azure",
+         summary="Azure Health Check",
+         description="Azure App Service health check endpoint",
+         tags=["General"])
+async def azure_health_check():
+    """
+    Azure App Service health check endpoint.
+    """
+    return {"status": "ok", "message": "Web ChatBot API is running"}
 
 # API information endpoint
 @app.get("/api/info",
@@ -242,18 +242,8 @@ async def api_info():
 app.include_router(auth_router, tags=["Authentication"])
 app.include_router(vector_chat_router, tags=["Vector Chat"])
 app.include_router(unified_chat_inquiry_router, tags=["Chat Inquiry", "Database"])
+app.include_router(users_router, tags=["User Management"])
 
-# Web interface route
-@app.get("/web", 
-         response_class=HTMLResponse,
-         summary="Web Interface",
-         description="Access the web-based chat interface",
-         tags=["General"])
-async def web_interface(request: Request):
-    """
-    Serve the web-based chat interface.
-    """
-    return templates.TemplateResponse("index.html", {"request": request})
 
 
 

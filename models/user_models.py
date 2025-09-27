@@ -62,6 +62,10 @@ class UserLogin(BaseModel):
     username: str = Field(..., description="Username")
     password: str = Field(..., description="Password")
 
+class UserTokenRequest(BaseModel):
+    """Model for requesting a token by user_id"""
+    user_id: str = Field(..., description="User ID to generate token for")
+
 class UserLoginResponse(BaseModel):
     """Model for login response"""
     success: bool = Field(..., description="Login success status")

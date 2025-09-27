@@ -11,12 +11,12 @@ security = HTTPBearer()
 class AuthHandler:
     def __init__(self):
         self.secret_key = Config.JWT_SECRET_KEY
-        self.algorithm = "HS256"
+        self.algorithm = Config.JWT_ALGORITHM
         
     def create_token(self, user_id: str) -> str:
         """Create JWT token with user_id as subject."""
         payload = {
-            'exp': datetime.utcnow() + timedelta(hours=24),
+            'exp': datetime.utcnow() + timedelta(hours=Config.JWT_ACCESS_TOKEN_EXPIRE_HOURS),
             'iat': datetime.utcnow(),
             'sub': user_id  # Store user_id instead of username
         }
@@ -45,7 +45,7 @@ class AuthHandler:
             raise HTTPException(status_code=401, detail="User not found")
         
         # Check if user is active
-        if user.status != "active":
+        if user.status != Config.DEFAULT_USER_STATUS:
             raise HTTPException(status_code=401, detail="User account is not active")
         
         return user_id
