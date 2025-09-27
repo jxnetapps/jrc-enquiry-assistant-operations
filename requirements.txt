@@ -52,9 +52,11 @@ starlette==0.27.0
 click==8.1.7
 h11==0.14.0
 
-# MongoDB support
-motor==3.3.2
-pymongo==4.6.0
+# PostgreSQL support
+asyncpg==0.30.0
+psycopg2-binary==2.9.10
+sqlalchemy==2.0.41
+alembic==1.16.5
 
 # Optional: ChromaDB for cloud integration
 # Uncomment the following line if you want to use ChromaDB cloud features

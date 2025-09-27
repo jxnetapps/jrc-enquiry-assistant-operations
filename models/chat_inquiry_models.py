@@ -18,6 +18,7 @@ class SchoolType(str, Enum):
 
 class InquiryStatus(str, Enum):
     NEW = "new"
+    ACTIVE = "active"
     CONTACTED = "contacted"
     FOLLOW_UP = "follow_up"
     CONVERTED = "converted"

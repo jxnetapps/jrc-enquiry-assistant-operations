@@ -2,235 +2,249 @@
 
 ## Overview
 
-This guide provides quick access to all available Chat Inquiry APIs with their endpoints, authentication requirements, and use cases.
+This guide provides quick access to the unified Chat Inquiry API with all endpoints, authentication requirements, and use cases.
 
-## 📋 API Summary Table
+## 📋 Unified API Summary
 
-| API | Route Prefix | Auth | Database | Best For |
-|-----|-------------|------|----------|----------|
-| **Original** | `/api/chat-inquiry` | 🔒 JWT | MongoDB | Admin/Internal |
-| **Enhanced** | `/api/v1/chat-inquiry` | 🔓 None | MongoDB + SQLite | Public/Advanced |
-| **Simple** | `/api/simple/chat-inquiry` | 🔓 None | MongoDB + SQLite | Basic/Public |
+| API | Route Prefix | Auth | Database | Description |
+|-----|-------------|------|----------|-------------|
+| **Unified** | `/api/chat-inquiry` | Mixed | PostgreSQL + SQLite | Complete solution with public and admin endpoints |
 
 ---
 
-## 🔧 Original API (`chat_inquiry_api.py`)
+## 🎯 Unified Chat Inquiry API (`unified_chat_inquiry_api.py`)
 
-**Authentication Required:** ✅ JWT Token
+**Authentication:** Mixed (Public endpoints + JWT for admin operations)
 
-### Endpoints
+### Public Endpoints (No Authentication Required)
 ```http
-POST   /api/chat-inquiry                    # Create inquiry
-GET    /api/chat-inquiry/{id}               # Get by ID
-PUT    /api/chat-inquiry/{id}               # Update by ID
-DELETE /api/chat-inquiry/{id}               # Delete by ID
-GET    /api/chat-inquiry/stats              # Get statistics
-GET    /api/chat-inquiry/by-email/{email}   # Get by email
-GET    /api/chat-inquiry/by-mobile/{mobile} # Get by mobile
-GET    /api/chat-inquiry/by-parent-type/{type} # Get by parent type
-GET    /api/chat-inquiry/by-school-type/{type} # Get by school type
-GET    /api/chat-inquiry/by-grade/{grade}   # Get by grade
-GET    /api/chat-inquiry/by-city/{city}     # Get by city
-GET    /api/chat-inquiry/by-status/{status} # Get by status
+POST   /api/chat-inquiry/public                    # Create inquiry (public)
+GET    /api/chat-inquiry/public/{id}               # Get by ID (public)
+GET    /api/chat-inquiry/public                    # List inquiries (public)
 ```
 
-### Example Usage
-```bash
-# Create inquiry (with auth)
-curl -X POST "http://localhost:8000/api/chat-inquiry" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -d '{"parentType": "New Parent", "schoolType": "Day School", ...}'
-
-# Get by email (with auth)
-curl -X GET "http://localhost:8000/api/chat-inquiry/by-email/test@example.com" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN"
-```
-
----
-
-## 🚀 Enhanced API (`enhanced_chat_inquiry_api.py`)
-
-**Authentication Required:** ❌ None
-
-### Endpoints
+### Admin Endpoints (JWT Authentication Required)
 ```http
-POST   /api/v1/chat-inquiry/                # Create single inquiry
-POST   /api/v1/chat-inquiry/bulk            # Create multiple inquiries
-GET    /api/v1/chat-inquiry/                # Get all with pagination/filtering
-GET    /api/v1/chat-inquiry/user/{user_id}  # Get by user_id with pagination
-GET    /api/v1/chat-inquiry/stats           # Get statistics
-GET    /api/v1/chat-inquiry/export          # Export data (JSON/CSV)
-GET    /api/v1/chat-inquiry/health          # Health check
+POST   /api/chat-inquiry                          # Create inquiry (admin)
+GET    /api/chat-inquiry/{id}                     # Get by ID (admin)
+PUT    /api/chat-inquiry/{id}                     # Update by ID (admin)
+DELETE /api/chat-inquiry/{id}                     # Delete by ID (admin)
+GET    /api/chat-inquiry                          # List inquiries (admin)
+GET    /api/chat-inquiry/stats                    # Get statistics (admin)
+GET    /api/chat-inquiry/by-email/{email}         # Get by email (admin)
+GET    /api/chat-inquiry/by-mobile/{mobile}       # Get by mobile (admin)
+GET    /api/chat-inquiry/by-parent-type/{type}    # Get by parent type (admin)
+GET    /api/chat-inquiry/by-school-type/{type}    # Get by school type (admin)
+GET    /api/chat-inquiry/user/{user_id}           # Get by user ID (admin)
 ```
 
-### Query Parameters (GET /api/v1/chat-inquiry/)
-- `page`: Page number (default: 1)
-- `page_size`: Records per page (default: 10, max: 100)
-- `search`: General search term
-- `parent_type`: Filter by parent type
-- `school_type`: Filter by school type
-- `status`: Filter by status
-- `sort_by`: Sort field (default: created_at)
-- `sort_order`: Sort direction (asc/desc, default: desc)
-
-### Example Usage
-```bash
-# Create inquiry (no auth)
-curl -X POST "http://localhost:8000/api/v1/chat-inquiry/" \
-  -H "Content-Type: application/json" \
-  -d '{"parentType": "New Parent", "schoolType": "Day School", ...}'
-
-# Get all with pagination and filtering
-curl -X GET "http://localhost:8000/api/v1/chat-inquiry/?page=1&page_size=10&search=John&parent_type=New%20Parent"
-
-# Export data as CSV
-curl -X GET "http://localhost:8000/api/v1/chat-inquiry/export?format=csv&limit=1000"
-
-# Get by user_id with pagination
-curl -X GET "http://localhost:8000/api/v1/chat-inquiry/user/user123?page=1&page_size=10"
-
-# Health check
-curl -X GET "http://localhost:8000/api/v1/chat-inquiry/health"
-```
-
----
-
-## 🎯 Simple API (`simple_chat_inquiry_api.py`)
-
-**Authentication Required:** ❌ None
-
-### Endpoints
+### Database Management Endpoints
 ```http
-POST   /api/simple/chat-inquiry/            # Create inquiry
-GET    /api/simple/chat-inquiry/            # Get all inquiries
-GET    /api/simple/chat-inquiry/{id}        # Get by ID
-DELETE /api/simple/chat-inquiry/{id}        # Delete by ID
-GET    /api/simple/chat-inquiry/user/{user_id} # Get by user_id
-GET    /api/simple/chat-inquiry/stats       # Get statistics
+GET    /api/chat-inquiry/database/status          # Database status
+POST   /api/chat-inquiry/database/test-postgres   # Test PostgreSQL connection
+POST   /api/chat-inquiry/database/export-sqlite   # Export SQLite to PostgreSQL
+GET    /api/chat-inquiry/database/export-status   # Export status
 ```
 
-### Example Usage
-```bash
-# Create inquiry (no auth)
-curl -X POST "http://localhost:8000/api/simple/chat-inquiry/" \
-  -H "Content-Type: application/json" \
-  -d '{"parentType": "New Parent", "schoolType": "Day School", ...}'
+### Request/Response Models
 
-# Get all inquiries
-curl -X GET "http://localhost:8000/api/simple/chat-inquiry/"
-
-# Get by ID
-curl -X GET "http://localhost:8000/api/simple/chat-inquiry/123"
-
-# Delete by ID
-curl -X DELETE "http://localhost:8000/api/simple/chat-inquiry/123"
-
-# Get by user_id
-curl -X GET "http://localhost:8000/api/simple/chat-inquiry/user/user123"
-
-# Get statistics
-curl -X GET "http://localhost:8000/api/simple/chat-inquiry/stats"
-```
-
----
-
-## 📊 Sample Request/Response
-
-### Create Inquiry Request
+#### Create Inquiry Request
 ```json
 {
-  "user_id": "user123",
+  "user_id": "optional-uuid",
   "parentType": "New Parent",
   "schoolType": "Day School",
-  "firstName": "John Doe",
+  "firstName": "John",
   "mobile": "9876543210",
   "email": "john@example.com",
   "city": "Mumbai",
-  "childName": "Jane Doe",
-  "grade": "Grade 1",
-  "academicYear": "2024-2025",
-  "dateOfBirth": "2020-01-01",
+  "childName": "Jane",
+  "grade": "5th",
+  "academicYear": "2024-25",
+  "dateOfBirth": "2015-06-15",
   "schoolName": "ABC School"
 }
 ```
 
-### Success Response
+#### Response Format
 ```json
 {
   "success": true,
-  "message": "Chat inquiry created successfully",
   "data": {
-    "inquiry_id": "123"
+    "id": "uuid",
+    "user_id": "uuid",
+    "parentType": "New Parent",
+    "schoolType": "Day School",
+    "firstName": "John",
+    "mobile": "9876543210",
+    "email": "john@example.com",
+    "city": "Mumbai",
+    "childName": "Jane",
+    "grade": "5th",
+    "academicYear": "2024-25",
+    "dateOfBirth": "2015-06-15",
+    "schoolName": "ABC School",
+    "status": "active",
+    "source": "api",
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z"
+  },
+  "message": "Inquiry created successfully"
+}
+```
+
+### Query Parameters
+
+#### List Inquiries
+- `page` (int): Page number (default: 1)
+- `page_size` (int): Items per page (default: 10, max: 100)
+- `parent_type` (str): Filter by parent type
+- `school_type` (str): Filter by school type
+- `status` (str): Filter by status
+- `search` (str): Search in name, child name, school name
+- `sort_by` (str): Sort field (default: created_at)
+- `sort_order` (str): Sort order (asc/desc, default: desc)
+
+### Status Values
+- `new` - New inquiry
+- `active` - Active inquiry (default)
+- `contacted` - Contacted
+- `follow_up` - Follow up required
+- `converted` - Converted
+- `rejected` - Rejected
+
+### Parent Types
+- `New Parent`
+- `Existing Parent`
+- `Prospective Parent`
+
+### School Types
+- `Day School`
+- `Boarding School`
+- `International School`
+- `Montessori School`
+
+## 🔧 Database Configuration
+
+### PostgreSQL (Primary)
+- **Connection**: `postgresql://postgres:Wildcat%40007@localhost:5432/jrc_chatbot_assistant`
+- **Table**: `chat_inquiry_information`
+- **Features**: Full ACID compliance, advanced queries, concurrent access
+
+### SQLite (Fallback)
+- **File**: `chat_inquiries.db`
+- **Table**: `chat_inquiry_information`
+- **Features**: Local storage, zero configuration, backup solution
+
+## 🚀 Quick Start
+
+### 1. Start the Application
+```bash
+python web_app.py
+```
+
+### 2. Test Database Connection
+```bash
+curl http://localhost:8000/api/chat-inquiry/database/status
+```
+
+### 3. Create a Public Inquiry
+```bash
+curl -X POST http://localhost:8000/api/chat-inquiry/public \
+  -H "Content-Type: application/json" \
+  -d '{
+    "parentType": "New Parent",
+    "schoolType": "Day School",
+    "firstName": "John",
+    "mobile": "9876543210",
+    "email": "john@example.com",
+    "city": "Mumbai",
+    "childName": "Jane",
+    "grade": "5th",
+    "academicYear": "2024-25",
+    "dateOfBirth": "2015-06-15",
+    "schoolName": "ABC School"
+  }'
+```
+
+### 4. List Inquiries
+```bash
+curl "http://localhost:8000/api/chat-inquiry/public?page=1&page_size=10"
+```
+
+## 🔒 Authentication
+
+### JWT Token (for admin endpoints)
+```bash
+# Get token from auth API
+curl -X POST http://localhost:8000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin", "password": "password"}'
+
+# Use token in admin requests
+curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  http://localhost:8000/api/chat-inquiry/stats
+```
+
+## 📊 Error Handling
+
+All endpoints return standardized error responses:
+
+```json
+{
+  "success": false,
+  "error": "Error message",
+  "details": {
+    "field": "Specific field error"
   }
 }
 ```
 
-### Error Response
-```json
-{
-  "success": false,
-  "message": "Validation error",
-  "error": "Missing required field: firstName"
-}
-```
+## 🔄 Migration
 
----
-
-## 🔍 Testing Scripts
-
-### Quick Test Commands
+### Export SQLite to PostgreSQL
 ```bash
-# Test Simple API
-python test_simple_api.py
-
-# Test Enhanced API
-python test_enhanced_api.py
-
-# Test Delete Functionality
-python test_delete_api.py
-
-# Test Original API (requires auth)
-python test_web_app.py
+curl -X POST http://localhost:8000/api/chat-inquiry/database/export-sqlite
 ```
 
-### Debug Commands
+### Check Export Status
 ```bash
-# Debug API endpoints
-python debug_api.py
+curl http://localhost:8000/api/chat-inquiry/database/export-status
+```
 
-# View SQLite data
-python simple_sqlite_viewer.py
+## 📈 Monitoring
+
+### Database Status
+```bash
+curl http://localhost:8000/api/chat-inquiry/database/status
+```
+
+### Statistics
+```bash
+curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  http://localhost:8000/api/chat-inquiry/stats
 ```
 
 ---
 
-## 🎯 Choosing the Right API
+## 🎯 Use Cases
 
-### Use **Original API** when:
-- 🔒 You need **secure access** with authentication
-- 🎯 You want **field-specific searches**
-- 🏢 You're building **admin/internal** systems
+### Public Website Integration
+- Use `/api/chat-inquiry/public` endpoints
+- No authentication required
+- Perfect for contact forms
 
-### Use **Enhanced API** when:
-- 🌐 You want **public access** without authentication
-- 📈 You need **advanced features** (pagination, filtering, export)
-- 🚀 You're building **public-facing** applications
+### Admin Dashboard
+- Use admin endpoints with JWT authentication
+- Full CRUD operations
+- Advanced filtering and statistics
 
-### Use **Simple API** when:
-- 🎯 You need **basic CRUD** operations
-- 🚀 You want **quick implementation**
-- 📱 You're building **mobile apps** or simple integrations
+### Data Migration
+- Export SQLite data to PostgreSQL
+- Monitor export progress
+- Maintain data integrity
 
----
-
-## 📚 Additional Resources
-
-- **Detailed Comparison**: [Chat Inquiry API Comparison](CHAT_INQUIRY_API_COMPARISON.md)
-- **API Documentation**: Available at `/docs` when server is running
-- **Test Scripts**: Located in the `tests/` directory
-- **Database Viewer**: Use `simple_sqlite_viewer.py` to view data
-
----
-
-*Last updated: December 2024*
+### Monitoring & Analytics
+- Database health checks
+- Inquiry statistics
+- Performance metrics

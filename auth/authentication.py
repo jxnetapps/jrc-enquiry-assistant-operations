@@ -4,7 +4,7 @@ import jwt
 from datetime import datetime, timedelta
 from typing import Optional
 from config import Config
-from .user_store import user_store
+from database.user_repository import user_repository
 
 security = HTTPBearer()
 
@@ -32,19 +32,24 @@ class AuthHandler:
         except jwt.InvalidTokenError:
             raise HTTPException(status_code=401, detail="Invalid token")
     
-    def get_current_user(self, credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
+    async def get_current_user(self, credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
         """Get current user_id from JWT token."""
         token = credentials.credentials
         user_id = self.verify_token(token)
         if not user_id:
             raise HTTPException(status_code=401, detail="Invalid credentials")
         
-        # Verify user still exists in user store
-        if not user_store.get_user_by_id(user_id):
+        # Verify user still exists in database
+        user = await user_repository.get_user_by_id(user_id)
+        if not user:
             raise HTTPException(status_code=401, detail="User not found")
+        
+        # Check if user is active
+        if user.status != "active":
+            raise HTTPException(status_code=401, detail="User account is not active")
         
         return user_id
 
-def authenticate_user(username: str, password: str) -> Optional[str]:
+async def authenticate_user(username: str, password: str) -> Optional[str]:
     """Authenticate user and return user_id if successful."""
-    return user_store.authenticate_user(username, password)
+    return await user_repository.authenticate_user(username, password)

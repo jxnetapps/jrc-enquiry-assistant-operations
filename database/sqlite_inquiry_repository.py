@@ -19,34 +19,33 @@ class SQLiteInquiryRepository:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 
-                # Create chat_inquiry_information table
+                # Create chat_inquiry_information table (matching PostgreSQL schema)
                 cursor.execute('''
                     CREATE TABLE IF NOT EXISTS chat_inquiry_information (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        user_id TEXT,
-                        parentType TEXT NOT NULL,
-                        schoolType TEXT NOT NULL,
-                        firstName TEXT NOT NULL,
-                        mobile TEXT NOT NULL,
-                        email TEXT NOT NULL,
-                        city TEXT NOT NULL,
-                        childName TEXT NOT NULL,
-                        grade TEXT NOT NULL,
-                        academicYear TEXT NOT NULL,
-                        dateOfBirth TEXT NOT NULL,
-                        schoolName TEXT NOT NULL,
-                        status TEXT DEFAULT 'new',
-                        source TEXT DEFAULT 'api',
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        id TEXT PRIMARY KEY,  -- Store UUID as TEXT
+                        user_id TEXT NOT NULL,  -- Store UUID as TEXT
+                        parent_type TEXT,
+                        school_type TEXT,
+                        first_name TEXT,
+                        mobile TEXT,
+                        email TEXT,
+                        city TEXT,
+                        child_name TEXT,
+                        grade TEXT,
+                        academic_year TEXT,
+                        date_of_birth TEXT,  -- Store as TEXT (YYYY-MM-DD format)
+                        school_name TEXT,
+                        status_code TEXT DEFAULT 'active',
+                        submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
                 ''')
                 
                 # Create indexes for better performance
                 cursor.execute('CREATE INDEX IF NOT EXISTS idx_email ON chat_inquiry_information(email)')
                 cursor.execute('CREATE INDEX IF NOT EXISTS idx_mobile ON chat_inquiry_information(mobile)')
-                cursor.execute('CREATE INDEX IF NOT EXISTS idx_status ON chat_inquiry_information(status)')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_status_code ON chat_inquiry_information(status_code)')
                 cursor.execute('CREATE INDEX IF NOT EXISTS idx_user_id ON chat_inquiry_information(user_id)')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_submitted_at ON chat_inquiry_information(submitted_at)')
                 
                 conn.commit()
                 logger.info("SQLite database initialized successfully")
@@ -69,21 +68,31 @@ class SQLiteInquiryRepository:
                 if field not in inquiry_data:
                     raise ValueError(f"Missing required field: {field}")
             
-            # Add additional metadata
-            inquiry_data['status'] = 'new'
-            inquiry_data['source'] = 'api'
+            # Generate UUID for id and user_id if not provided
+            import uuid
+            inquiry_id = str(uuid.uuid4())
+            user_id = inquiry_data.get('user_id')
+            if not user_id:
+                user_id = str(uuid.uuid4())
+            else:
+                # Validate if it's a proper UUID, if not generate a new one
+                try:
+                    uuid.UUID(user_id)
+                except ValueError:
+                    user_id = str(uuid.uuid4())
             
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 
                 cursor.execute('''
                     INSERT INTO chat_inquiry_information 
-                    (user_id, parentType, schoolType, firstName, mobile, email, city, 
-                     childName, grade, academicYear, dateOfBirth, schoolName, 
-                     status, source)
+                    (id, user_id, parent_type, school_type, first_name, mobile, email, city, 
+                     child_name, grade, academic_year, date_of_birth, school_name, 
+                     status_code)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
-                    inquiry_data.get('user_id'),
+                    inquiry_id,
+                    user_id,
                     inquiry_data['parentType'],
                     inquiry_data['schoolType'],
                     inquiry_data['firstName'],
@@ -95,15 +104,13 @@ class SQLiteInquiryRepository:
                     inquiry_data['academicYear'],
                     inquiry_data['dateOfBirth'],
                     inquiry_data['schoolName'],
-                    inquiry_data['status'],
-                    inquiry_data['source']
+                    'active'
                 ))
                 
-                inquiry_id = cursor.lastrowid
                 conn.commit()
                 
                 logger.info(f"Created inquiry in SQLite with ID: {inquiry_id}")
-                return str(inquiry_id)
+                return inquiry_id
                 
         except Exception as e:
             logger.error(f"Error creating inquiry in SQLite: {e}")
@@ -120,7 +127,7 @@ class SQLiteInquiryRepository:
                 row = cursor.fetchone()
                 
                 if row:
-                    return dict(row)
+                    return self._convert_sqlite_to_camel_case(dict(row))
                 return None
                 
         except Exception as e:
@@ -138,7 +145,7 @@ class SQLiteInquiryRepository:
                 row = cursor.fetchone()
                 
                 if row:
-                    return dict(row)
+                    return self._convert_sqlite_to_camel_case(dict(row))
                 return None
                 
         except Exception as e:
@@ -156,7 +163,7 @@ class SQLiteInquiryRepository:
                 row = cursor.fetchone()
                 
                 if row:
-                    return dict(row)
+                    return self._convert_sqlite_to_camel_case(dict(row))
                 return None
                 
         except Exception as e:
@@ -214,7 +221,7 @@ class SQLiteInquiryRepository:
                 cursor.execute(query, params)
                 rows = cursor.fetchall()
                 
-                return [dict(row) for row in rows]
+                return [self._convert_sqlite_to_camel_case(dict(row)) for row in rows]
                 
         except Exception as e:
             logger.error(f"Error searching inquiries in SQLite: {e}")
@@ -235,12 +242,96 @@ class SQLiteInquiryRepository:
                 ''', (user_id, limit, skip))
                 
                 rows = cursor.fetchall()
-                return [dict(row) for row in rows]
+                return [self._convert_sqlite_to_camel_case(dict(row)) for row in rows]
                 
         except Exception as e:
             logger.error(f"Error finding inquiries by user_id in SQLite: {e}")
             raise
     
+    async def find_all(self, filter_dict: Dict[str, Any], skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
+        """Find all inquiries with filtering and pagination"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                
+                where_conditions = []
+                params = []
+                
+                for key, value in filter_dict.items():
+                    if key == 'user_id':
+                        where_conditions.append('user_id = ?')
+                        params.append(value)
+                    elif key == 'parentType':
+                        where_conditions.append('parentType = ?')
+                        params.append(value)
+                    elif key == 'schoolType':
+                        where_conditions.append('schoolType = ?')
+                        params.append(value)
+                    elif key == 'status':
+                        where_conditions.append('status = ?')
+                        params.append(value)
+                    elif key == 'search_text':
+                        where_conditions.append('(firstName LIKE ? OR childName LIKE ? OR schoolName LIKE ?)')
+                        search_text = f"%{value}%"
+                        params.extend([search_text, search_text, search_text])
+                
+                where_clause = ' AND '.join(where_conditions) if where_conditions else '1=1'
+                
+                query = f'''
+                    SELECT * FROM chat_inquiry_information 
+                    WHERE {where_clause}
+                    ORDER BY created_at DESC
+                    LIMIT ? OFFSET ?
+                '''
+                params.extend([limit, skip])
+                
+                cursor.execute(query, params)
+                rows = cursor.fetchall()
+                
+                return [self._convert_sqlite_to_camel_case(dict(row)) for row in rows]
+                
+        except Exception as e:
+            logger.error(f"Error finding all inquiries in SQLite: {e}")
+            return []
+
+    async def count_documents(self, query: Optional[Dict[str, Any]] = None) -> int:
+        """Count documents matching a query"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                
+                where_conditions = []
+                params = []
+                
+                if query:
+                    for key, value in query.items():
+                        if key == 'user_id':
+                            where_conditions.append('user_id = ?')
+                            params.append(value)
+                        elif key == 'parentType':
+                            where_conditions.append('parentType = ?')
+                            params.append(value)
+                        elif key == 'schoolType':
+                            where_conditions.append('schoolType = ?')
+                            params.append(value)
+                        elif key == 'status':
+                            where_conditions.append('status = ?')
+                            params.append(value)
+                        elif key == 'search_text':
+                            where_conditions.append('(firstName LIKE ? OR childName LIKE ? OR schoolName LIKE ?)')
+                            search_text = f"%{value}%"
+                            params.extend([search_text, search_text, search_text])
+                
+                where_clause = ' AND '.join(where_conditions) if where_conditions else '1=1'
+                
+                cursor.execute(f'SELECT COUNT(*) FROM chat_inquiry_information WHERE {where_clause}', params)
+                return cursor.fetchone()[0]
+                
+        except Exception as e:
+            logger.error(f"Error counting documents in SQLite: {e}")
+            return 0
+
     async def get_inquiry_stats(self) -> Dict[str, Any]:
         """Get statistics about inquiries"""
         try:
@@ -252,15 +343,15 @@ class SQLiteInquiryRepository:
                 total_inquiries = cursor.fetchone()[0]
                 
                 # Parent type distribution
-                cursor.execute('SELECT parentType, COUNT(*) FROM chat_inquiry_information GROUP BY parentType')
+                cursor.execute('SELECT parent_type, COUNT(*) FROM chat_inquiry_information GROUP BY parent_type')
                 parent_type_dist = dict(cursor.fetchall())
                 
                 # School type distribution
-                cursor.execute('SELECT schoolType, COUNT(*) FROM chat_inquiry_information GROUP BY schoolType')
+                cursor.execute('SELECT school_type, COUNT(*) FROM chat_inquiry_information GROUP BY school_type')
                 school_type_dist = dict(cursor.fetchall())
                 
                 # Status distribution
-                cursor.execute('SELECT status, COUNT(*) FROM chat_inquiry_information GROUP BY status')
+                cursor.execute('SELECT status_code, COUNT(*) FROM chat_inquiry_information GROUP BY status_code')
                 status_dist = dict(cursor.fetchall())
                 
                 return {
@@ -273,3 +364,38 @@ class SQLiteInquiryRepository:
         except Exception as e:
             logger.error(f"Error getting inquiry stats from SQLite: {e}")
             raise
+    
+    def _convert_sqlite_to_camel_case(self, record: Dict[str, Any]) -> Dict[str, Any]:
+        """Convert SQLite record to camelCase format for API compatibility"""
+        converted = {}
+        for key, value in record.items():
+            if key == 'id':
+                converted['id'] = str(value)
+            elif key == 'user_id':
+                converted['user_id'] = str(value) if value else value
+            elif key == 'parent_type':
+                converted['parentType'] = value
+            elif key == 'school_type':
+                converted['schoolType'] = value
+            elif key == 'first_name':
+                converted['firstName'] = value
+            elif key == 'child_name':
+                converted['childName'] = value
+            elif key == 'academic_year':
+                converted['academicYear'] = value
+            elif key == 'date_of_birth':
+                converted['dateOfBirth'] = value
+            elif key == 'school_name':
+                converted['schoolName'] = value
+            elif key == 'status_code':
+                converted['status'] = value  # Map status_code to status for API compatibility
+            elif key == 'submitted_at':
+                converted['created_at'] = value
+                converted['updated_at'] = value  # Use submitted_at for both created_at and updated_at
+            else:
+                converted[key] = value
+        
+        # Add default source field
+        converted['source'] = 'api'
+        
+        return converted
