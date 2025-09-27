@@ -84,10 +84,10 @@ class Config:
     RATE_LIMIT_REQUESTS = int(os.getenv("RATE_LIMIT_REQUESTS", "100"))
     RATE_LIMIT_PERIOD = int(os.getenv("RATE_LIMIT_PERIOD", "3600"))
     
-    # MongoDB Configuration
-    MONGODB_CONNECTION_URI = os.getenv("MONGODB_CONNECTION_URI", "mongodb+srv://chat_inquiry_admin:6ggw7abyVnjEaTbJ@inquiryassistant.ny6bkka.mongodb.net/?retryWrites=true&w=majority&appName=inquiryassistant")
-    MONGODB_DATABASE_NAME = os.getenv("MONGODB_DATABASE_NAME", "inquiryassistant")
-    MONGODB_CHAT_INQUIRY_COLLECTION = os.getenv("MONGODB_CHAT_INQUIRY_COLLECTION", "chat_inquiry_information")
+    # PostgreSQL Configuration
+    POSTGRESQL_CONNECTION_URI = os.getenv("POSTGRESQL_CONNECTION_URI", "postgresql://postgres:Wildcat%40007@localhost:5432/jrc_chatbot_assistant")
+    POSTGRESQL_DATABASE_NAME = os.getenv("POSTGRESQL_DATABASE_NAME", "jrc_chatbot_assistant")
+    POSTGRESQL_CHAT_INQUIRY_TABLE = os.getenv("POSTGRESQL_CHAT_INQUIRY_TABLE", "chat_inquiry_information")
     
     @classmethod
     def validate_config(cls):
@@ -103,6 +103,6 @@ class Config:
             if not cls.CHROMA_CLOUD_DATABASE_ID:
                 raise ValueError("CHROMA_CLOUD_DATABASE_ID is required when using cloud database")
         
-        # Validate MongoDB configuration
-        if not cls.MONGODB_CONNECTION_URI:
-            raise ValueError("MONGODB_CONNECTION_URI is required for MongoDB operations")
+        # Validate PostgreSQL configuration
+        if not cls.POSTGRESQL_CONNECTION_URI:
+            raise ValueError("POSTGRESQL_CONNECTION_URI is required for PostgreSQL operations")

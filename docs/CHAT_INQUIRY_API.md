@@ -1,6 +1,6 @@
 # Chat Inquiry Information API
 
-This document describes the Chat Inquiry Information API endpoints that allow you to manage chat inquiry data in MongoDB.
+This document describes the Chat Inquiry Information API endpoints that allow you to manage chat inquiry data in PostgreSQL with SQLite fallback.
 
 ## Overview
 
@@ -276,19 +276,20 @@ curl -X POST "http://localhost:8000/api/chat-inquiry" \
   }'
 ```
 
-## MongoDB Configuration
+## PostgreSQL Configuration
 
-The API uses MongoDB with the following configuration:
-- **Connection URI**: `mongodb+srv://chat_inquiry_admin:6ggw7abyVnjEaTbJ@inquiryassistant.ny6bkka.mongodb.net/?retryWrites=true&w=majority&appName=inquiryassistant`
-- **Database**: `inquiryassistant`
-- **Collection**: `chat_inquiry_information`
+The API uses PostgreSQL with SQLite fallback with the following configuration:
+- **Connection URI**: `postgresql://postgres:Wildcat@007@localhost:5432/jrc_chatbot_assistant`
+- **Database**: `jrc_chatbot_assistant`
+- **Table**: `chat_inquiry_information`
 
 ## Repository Pattern
 
-The API implements a generic repository pattern that can be extended for other collections:
+The API implements a repository pattern with PostgreSQL and SQLite support:
 
-- `BaseRepository` - Generic MongoDB operations
-- `ChatInquiryRepository` - Specific operations for chat inquiries
-- `MongoDBConnection` - Connection management
+- `PostgreSQLInquiryRepository` - PostgreSQL operations for chat inquiries
+- `SQLiteInquiryRepository` - SQLite fallback operations
+- `PostgreSQLConnection` - PostgreSQL connection management
+- `ChatInquiryRepository` - Main repository with fallback logic
 
-This pattern allows easy addition of new collections and operations.
+This pattern allows easy addition of new tables and operations with automatic fallback to SQLite.

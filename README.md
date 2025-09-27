@@ -14,7 +14,7 @@ A sophisticated chatbot that crawls websites, processes content, and provides in
 - 🌈 **Web Interface**: Modern FastAPI web app
 - 🎯 **Configurable Chat Behavior**: Switch between knowledge base and predefined question flows
 - 🔄 **State Management**: State-driven conversations for structured interactions
-- 📝 **Chat Inquiry APIs**: Multiple API options for different use cases (see [API Comparison](docs/CHAT_INQUIRY_API_COMPARISON.md))
+- 📝 **Unified Chat Inquiry API**: Complete solution with public and admin endpoints (see [API Guide](docs/UNIFIED_API_GUIDE.md))
 
 ## Installation
 

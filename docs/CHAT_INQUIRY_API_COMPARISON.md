@@ -8,9 +8,9 @@ This document provides a comprehensive comparison of the three different Chat In
 
 | API | Purpose | Authentication | Database | Complexity |
 |-----|---------|----------------|----------|------------|
-| **chat_inquiry_api** | Secure admin operations | 🔒 Required (JWT) | MongoDB only | Medium |
-| **enhanced_chat_inquiry_api** | Public-facing advanced features | 🔓 None | MongoDB + SQLite fallback | High |
-| **simple_chat_inquiry_api** | Basic CRUD operations | 🔓 None | MongoDB + SQLite fallback | Low |
+| **chat_inquiry_api** | Secure admin operations | 🔒 Required (JWT) | PostgreSQL + SQLite | Medium |
+| **enhanced_chat_inquiry_api** | Public-facing advanced features | 🔓 None | PostgreSQL + SQLite fallback | High |
+| **simple_chat_inquiry_api** | Basic CRUD operations | 🔓 None | PostgreSQL + SQLite fallback | Low |
 
 ---
 
@@ -24,7 +24,7 @@ Secure chat inquiry API with authentication requirements for admin/internal oper
 - ✅ **Basic CRUD**: Create, Read by ID, Update, Delete
 - ✅ **Search Functions**: By email, mobile, parent type, etc.
 - ✅ **Statistics**: Basic inquiry stats
-- ✅ **MongoDB Only**: No SQLite fallback
+- ✅ **PostgreSQL Primary**: With SQLite fallback
 - ✅ **Field-specific searches**: Targeted queries
 
 ### **Endpoints**
@@ -69,7 +69,7 @@ Advanced chat inquiry API with comprehensive features for public-facing operatio
 - ✅ **Filtering & Search**: Multiple search criteria
 - ✅ **Bulk Operations**: Insert multiple records at once
 - ✅ **Data Export**: JSON and CSV export
-- ✅ **Hybrid Database**: MongoDB + SQLite fallback
+- ✅ **Hybrid Database**: PostgreSQL + SQLite fallback
 - ✅ **Advanced Statistics**: Comprehensive analytics
 - ✅ **Health Check**: System status monitoring
 
@@ -119,7 +119,7 @@ Basic chat inquiry API for simple CRUD operations without authentication.
 - ✅ **No Authentication**: Public access to all endpoints
 - ✅ **Basic CRUD**: Create, Read All, Get by ID, Delete
 - ✅ **Statistics**: Basic inquiry stats
-- ✅ **Hybrid Database**: MongoDB + SQLite fallback
+- ✅ **Hybrid Database**: PostgreSQL + SQLite fallback
 - ✅ **Simple Interface**: Easy to use and understand
 
 ### **Endpoints**
@@ -148,7 +148,7 @@ GET    /api/simple/chat-inquiry/stats       # Get statistics
 | Feature | chat_inquiry_api | enhanced_chat_inquiry_api | simple_chat_inquiry_api |
 |---------|------------------|---------------------------|-------------------------|
 | **Authentication** | 🔒 Required (JWT) | 🔓 None | 🔓 None |
-| **Database** | MongoDB only | MongoDB + SQLite fallback | MongoDB + SQLite fallback |
+| **Database** | PostgreSQL + SQLite | PostgreSQL + SQLite fallback | PostgreSQL + SQLite fallback |
 | **Pagination** | ❌ No | ✅ Yes (page, page_size) | ❌ No |
 | **Filtering** | ✅ Basic (by field) | ✅ Advanced (multiple criteria) | ❌ No |
 | **Search** | ✅ Field-specific | ✅ Text search across fields | ❌ No |
@@ -194,9 +194,9 @@ GET    /api/simple/chat-inquiry/stats       # Get statistics
 ## 🔧 Technical Implementation Details
 
 ### **Database Strategy**
-- **chat_inquiry_api**: MongoDB only (no fallback)
-- **enhanced_chat_inquiry_api**: MongoDB with SQLite fallback
-- **simple_chat_inquiry_api**: MongoDB with SQLite fallback
+- **chat_inquiry_api**: PostgreSQL with SQLite fallback
+- **enhanced_chat_inquiry_api**: PostgreSQL with SQLite fallback
+- **simple_chat_inquiry_api**: PostgreSQL with SQLite fallback
 
 ### **Error Handling**
 - **chat_inquiry_api**: Basic error handling with custom responses
@@ -219,7 +219,7 @@ Based on your requirements, select the appropriate API from the comparison above
 For `chat_inquiry_api`, you'll need to implement JWT authentication.
 
 ### **3. Configure Database**
-Ensure MongoDB is configured, or the system will automatically fall back to SQLite.
+Ensure PostgreSQL is configured, or the system will automatically fall back to SQLite.
 
 ### **4. Test the Endpoints**
 Use the provided test scripts or API documentation to test your chosen API.
