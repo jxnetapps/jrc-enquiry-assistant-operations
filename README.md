@@ -11,7 +11,7 @@ A sophisticated chatbot that crawls websites, processes content, and provides in
 - ⚡ **Rate Limiting**: Polite crawling with configurable delays
 - 📊 **Content Filtering**: Quality-based content filtering
 - 🕐 **Scheduling**: Automatic content updates
-- 🌈 **Web Interface**: Modern FastAPI web app
+- 🌈 **API Documentation**: Interactive Swagger UI for easy testing
 - 🎯 **Configurable Chat Behavior**: Switch between knowledge base and predefined question flows
 - 🔄 **State Management**: State-driven conversations for structured interactions
 - 📝 **Unified Chat Inquiry API**: Complete solution with public and admin endpoints (see [API Guide](docs/UNIFIED_API_GUIDE.md))
@@ -100,6 +100,24 @@ A sophisticated chatbot that crawls websites, processes content, and provides in
    **Configuration Template:**
    - Use `config_template.env` as a reference
    - Copy it to `.env` and customize as needed
+
+## Usage
+
+1. **Start the application**
+   ```bash
+   python web_app.py
+   ```
+
+2. **Access the API documentation**
+   - Open your browser and go to `http://localhost:8000`
+   - You'll be automatically redirected to the Swagger documentation at `/docs`
+   - Use the interactive API documentation to test all endpoints
+
+3. **Available API Endpoints**
+   - **Authentication**: `/api/auth/*` - User login, registration, and management
+   - **Vector Chat**: `/api/vector-chat/*` - AI-powered chat and web crawling
+   - **Chat Inquiry**: `/api/chat-inquiry/*` - Inquiry management and statistics
+   - **User Management**: `/api/users/*` - User administration (admin only)
 
 ## Testing
 

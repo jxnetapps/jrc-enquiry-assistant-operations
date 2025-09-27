@@ -2,9 +2,21 @@ import os
 from dotenv import load_dotenv
 from typing import Optional
 
-load_dotenv()
+# Determine environment
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+
+# Load environment-specific .env file
+env_file = f".env.{ENVIRONMENT}"
+if os.path.exists(env_file):
+    load_dotenv(env_file)
+else:
+    # Fallback to default .env file
+    load_dotenv()
 
 class Config:
+    # Environment
+    ENVIRONMENT = ENVIRONMENT
+    
     # API Keys
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
     
@@ -27,6 +39,11 @@ class Config:
     USER_AGENT = os.getenv("USER_AGENT", "WebChatBot/2.0")
     CRAWL_DELAY = float(os.getenv("CRAWL_DELAY", "1.0"))
     MAX_CONCURRENT_REQUESTS = int(os.getenv("MAX_CONCURRENT_REQUESTS", "5"))
+    
+    # Content Filtering
+    MIN_CONTENT_LENGTH = int(os.getenv("MIN_CONTENT_LENGTH", "100"))
+    MAX_CONTENT_LENGTH = int(os.getenv("MAX_CONTENT_LENGTH", "10000"))
+    CONTENT_QUALITY_THRESHOLD = float(os.getenv("CONTENT_QUALITY_THRESHOLD", "0.5"))
     
     # Embedding Settings
     EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
@@ -65,36 +82,59 @@ class Config:
     LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "1000"))
     
     # Authentication
-    JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your_super_secret_jwt_key_here")
-    ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
-    ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
+    JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+    JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+    JWT_ACCESS_TOKEN_EXPIRE_HOURS = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_HOURS", "24"))
+    ADMIN_USERNAME = os.getenv("ADMIN_USERNAME")
+    ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
     # Auth mode: when true, allow any username/password for testing and namespace data by username
     ALLOW_ANY_USER = os.getenv("ALLOW_ANY_USER", "True").lower() == "true"
+    DEFAULT_USER_STATUS = os.getenv("DEFAULT_USER_STATUS", "active")
     
     # Web Interface
     HOST = os.getenv("HOST", "0.0.0.0")
     PORT = int(os.getenv("PORT", "8000"))
     DEBUG = os.getenv("DEBUG", "True").lower() == "true"
     
+    # Logging
+    LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+    
     # Scheduling
     SCHEDULE_CRAWL = os.getenv("SCHEDULE_CRAWL", "False").lower() == "true"
     CRAWL_SCHEDULE = os.getenv("CRAWL_SCHEDULE", "0 2 * * *")
     
     # Rate Limiting
+    RATE_LIMIT_ENABLED = os.getenv("RATE_LIMIT_ENABLED", "True").lower() == "true"
     RATE_LIMIT_REQUESTS = int(os.getenv("RATE_LIMIT_REQUESTS", "100"))
     RATE_LIMIT_PERIOD = int(os.getenv("RATE_LIMIT_PERIOD", "3600"))
     
     # PostgreSQL Configuration
-    POSTGRESQL_CONNECTION_URI = os.getenv("POSTGRESQL_CONNECTION_URI", "postgresql://postgres:Wildcat%40007@localhost:5432/jrc_chatbot_assistant")
-    POSTGRESQL_DATABASE_NAME = os.getenv("POSTGRESQL_DATABASE_NAME", "jrc_chatbot_assistant")
+    POSTGRESQL_CONNECTION_URI = os.getenv("POSTGRESQL_CONNECTION_URI")
+    POSTGRESQL_DATABASE_NAME = os.getenv("POSTGRESQL_DATABASE_NAME")
     POSTGRESQL_CHAT_INQUIRY_TABLE = os.getenv("POSTGRESQL_CHAT_INQUIRY_TABLE", "chat_inquiry_information")
     
     @classmethod
     def validate_config(cls):
         """Validate configuration values"""
+        # Validate required authentication settings
+        if not cls.JWT_SECRET_KEY:
+            raise ValueError("JWT_SECRET_KEY is required")
+        if not cls.ADMIN_USERNAME:
+            raise ValueError("ADMIN_USERNAME is required")
+        if not cls.ADMIN_PASSWORD:
+            raise ValueError("ADMIN_PASSWORD is required")
+        
+        # Validate PostgreSQL configuration
+        if not cls.POSTGRESQL_CONNECTION_URI:
+            raise ValueError("POSTGRESQL_CONNECTION_URI is required for PostgreSQL operations")
+        if not cls.POSTGRESQL_DATABASE_NAME:
+            raise ValueError("POSTGRESQL_DATABASE_NAME is required for PostgreSQL operations")
+        
+        # Validate OpenAI configuration
         if not cls.OPENAI_API_KEY and cls.EMBEDDING_MODEL == cls.OPENAI_EMBEDDING_MODEL:
             raise ValueError("OPENAI_API_KEY is required when using OpenAI embeddings")
         
+        # Validate Chroma Cloud configuration
         if cls.DATABASE_TYPE == "cloud":
             if not cls.CHROMA_CLOUD_API_KEY:
                 raise ValueError("CHROMA_CLOUD_API_KEY is required when using cloud database")
@@ -102,7 +142,3 @@ class Config:
                 raise ValueError("CHROMA_CLOUD_TENANT_ID is required when using cloud database")
             if not cls.CHROMA_CLOUD_DATABASE_ID:
                 raise ValueError("CHROMA_CLOUD_DATABASE_ID is required when using cloud database")
-        
-        # Validate PostgreSQL configuration
-        if not cls.POSTGRESQL_CONNECTION_URI:
-            raise ValueError("POSTGRESQL_CONNECTION_URI is required for PostgreSQL operations")

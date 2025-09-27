@@ -7,7 +7,8 @@ from auth.authentication import AuthHandler, authenticate_user
 from database.user_repository import user_repository
 from models.user_models import (
     UserCreate, UserUpdate, UserResponse, UserLogin, UserLoginResponse,
-    UserListResponse, UserStatsResponse, UserPasswordUpdate, UserRole, UserStatus
+    UserListResponse, UserStatsResponse, UserPasswordUpdate, UserRole, UserStatus,
+    UserTokenRequest
 )
 
 # Setup logging
@@ -54,6 +55,46 @@ async def login(login_data: UserLogin):
         return UserLoginResponse(
             success=False,
             message="Login failed"
+        )
+
+@router.post("/token", response_model=ApiResponse)
+async def create_token_for_user(token_request: UserTokenRequest):
+    """Create a token for a user if their user_id exists in the database"""
+    try:
+        # Check if user exists in database
+        user_data = await user_repository.get_user_by_id(token_request.user_id)
+        if not user_data:
+            return ApiResponse(
+                success=False,
+                message="User not found"
+            )
+        
+        # Check if user is active
+        if user_data.status != UserStatus.ACTIVE:
+            return ApiResponse(
+                success=False,
+                message="User account is not active"
+            )
+        
+        # Generate token for the user
+        token = auth_handler.create_token(token_request.user_id)
+        
+        return ApiResponse(
+            success=True,
+            message="Token created successfully",
+            access_token=token,
+            user_id=token_request.user_id,
+            data={
+                "username": user_data.username,
+                "role": user_data.role,
+                "status": user_data.status
+            }
+        )
+    except Exception as e:
+        logger.error(f"Token creation error: {e}")
+        return ApiResponse(
+            success=False,
+            message="Token creation failed"
         )
 
 @router.post("/register", response_model=ApiResponse)
@@ -171,89 +212,3 @@ async def update_password(
             message="Error updating password"
         )
 
-@router.get("/users", response_model=UserListResponse)
-async def list_users(
-    page: int = Query(1, ge=1, description="Page number"),
-    page_size: int = Query(10, ge=1, le=100, description="Page size"),
-    role: Optional[UserRole] = Query(None, description="Filter by role"),
-    status: Optional[UserStatus] = Query(None, description="Filter by status"),
-    current_user: str = Depends(auth_handler.get_current_user)
-):
-    """List users with pagination and filtering (Admin only)"""
-    try:
-        # Check if current user is admin
-        current_user_data = await user_repository.get_user_by_id(current_user)
-        if not current_user_data or current_user_data.role != UserRole.ADMIN:
-            raise HTTPException(status_code=403, detail="Admin access required")
-        
-        skip = (page - 1) * page_size
-        users = await user_repository.list_users(skip, page_size, role, status)
-        total = await user_repository.count_users(role, status)
-        pages = (total + page_size - 1) // page_size
-        
-        return UserListResponse(
-            users=users,
-            total=total,
-            page=page,
-            page_size=page_size,
-            pages=pages
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"List users error: {e}")
-        raise HTTPException(status_code=500, detail="Error listing users")
-
-@router.get("/users/stats", response_model=UserStatsResponse)
-async def get_user_stats(current_user: str = Depends(auth_handler.get_current_user)):
-    """Get user statistics (Admin only)"""
-    try:
-        # Check if current user is admin
-        current_user_data = await user_repository.get_user_by_id(current_user)
-        if not current_user_data or current_user_data.role != UserRole.ADMIN:
-            raise HTTPException(status_code=403, detail="Admin access required")
-        
-        stats = await user_repository.get_user_stats()
-        return UserStatsResponse(**stats)
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Get user stats error: {e}")
-        raise HTTPException(status_code=500, detail="Error getting user statistics")
-
-@router.delete("/users/{user_id}", response_model=ApiResponse)
-async def delete_user(
-    user_id: str,
-    current_user: str = Depends(auth_handler.get_current_user)
-):
-    """Delete user (Admin only)"""
-    try:
-        # Check if current user is admin
-        current_user_data = await user_repository.get_user_by_id(current_user)
-        if not current_user_data or current_user_data.role != UserRole.ADMIN:
-            raise HTTPException(status_code=403, detail="Admin access required")
-        
-        # Prevent self-deletion
-        if user_id == current_user:
-            raise HTTPException(status_code=400, detail="Cannot delete your own account")
-        
-        success = await user_repository.delete_user(user_id)
-        if success:
-            return ApiResponse(
-                success=True,
-                message="User deleted successfully",
-                user_id=user_id
-            )
-        else:
-            return ApiResponse(
-                success=False,
-                message="User not found"
-            )
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Delete user error: {e}")
-        return ApiResponse(
-            success=False,
-            message="Error deleting user"
-        )

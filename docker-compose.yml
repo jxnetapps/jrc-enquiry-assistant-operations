@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  webchatbot-dev:
+    build: .
+    container_name: webchatbot-dev
+    environment:
+      - ENVIRONMENT=development
+    env_file:
+      - .env.development
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./chroma_db:/app/chroma_db
+      - ./logs:/app/logs
+    restart: unless-stopped
+
+  webchatbot-staging:
+    build: .
+    container_name: webchatbot-staging
+    environment:
+      - ENVIRONMENT=staging
+    env_file:
+      - .env.staging
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./chroma_db_staging:/app/chroma_db_staging
+      - ./logs:/app/logs
+    restart: unless-stopped
+
+  webchatbot-prod:
+    build: .
+    container_name: webchatbot-prod
+    environment:
+      - ENVIRONMENT=production
+    env_file:
+      - .env.production
+    ports:
+      - "8002:8000"
+    volumes:
+      - ./chroma_db_prod:/app/chroma_db_prod
+      - ./logs:/app/logs
+    restart: always
