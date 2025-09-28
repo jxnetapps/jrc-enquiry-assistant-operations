@@ -26,15 +26,15 @@ def test_cloud_config():
     """Test Chroma Cloud configuration and initialization"""
     try:
         # Check if cloud mode is configured
-        if Config.DATABASE_TYPE != "cloud":
-            logger.error(f"❌ Database type is set to '{Config.DATABASE_TYPE}', not 'cloud'")
-            logger.info("Please set DATABASE_TYPE=cloud in your .env file")
+        if Config.VECTOR_DATABASE_TYPE != "cloud":
+            logger.error(f"❌ Database type is set to '{Config.VECTOR_DATABASE_TYPE}', not 'cloud'")
+            logger.info("Please set VECTOR_DATABASE_TYPE=cloud in your .env file")
             return False
         
         # Validate configuration
         logger.info("Validating Chroma Cloud configuration...")
         Config.validate_config()
-        logger.info(f"✓ Configuration validated for database type: {Config.DATABASE_TYPE}")
+        logger.info(f"✓ Configuration validated for database type: {Config.VECTOR_DATABASE_TYPE}")
         
         # Test database factory
         logger.info("Testing Chroma Cloud database factory...")
@@ -91,15 +91,15 @@ def main():
     print("Chroma Cloud Configuration Test")
     print("=" * 60)
     
-    print(f"Database Type: {Config.DATABASE_TYPE}")
+    print(f"Database Type: {Config.VECTOR_DATABASE_TYPE}")
     
-    if Config.DATABASE_TYPE == "cloud":
+    if Config.VECTOR_DATABASE_TYPE == "cloud":
         print(f"Chroma Cloud Tenant: {Config.CHROMA_CLOUD_TENANT_ID}")
         print(f"Chroma Cloud Database: {Config.CHROMA_CLOUD_DATABASE_ID}")
         print(f"Chroma Cloud Collection: {Config.CHROMA_CLOUD_COLLECTION_NAME}")
     else:
         print("❌ Not configured for cloud mode!")
-        print("Set DATABASE_TYPE=cloud in your .env file")
+        print("Set VECTOR_DATABASE_TYPE=cloud in your .env file")
         sys.exit(1)
     
     print("=" * 60)

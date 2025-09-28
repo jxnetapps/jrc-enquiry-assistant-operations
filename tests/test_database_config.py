@@ -28,7 +28,7 @@ def test_database_config():
         # Validate configuration
         logger.info("Validating database configuration...")
         Config.validate_config()
-        logger.info(f"✓ Configuration validated for database type: {Config.DATABASE_TYPE}")
+        logger.info(f"✓ Configuration validated for database type: {Config.VECTOR_DATABASE_TYPE}")
         
         # Test database factory
         logger.info("Testing database factory...")
@@ -85,10 +85,10 @@ def main():
     print("Database Configuration Test")
     print("=" * 60)
     
-    print(f"Database Type: {Config.DATABASE_TYPE}")
+    print(f"Database Type: {Config.VECTOR_DATABASE_TYPE}")
     print(f"Collection Name: {Config.COLLECTION_NAME}")
     
-    if Config.DATABASE_TYPE == "cloud":
+    if Config.VECTOR_DATABASE_TYPE == "cloud":
         print(f"Chroma Cloud Tenant: {Config.CHROMA_CLOUD_TENANT_ID}")
         print(f"Chroma Cloud Database: {Config.CHROMA_CLOUD_DATABASE_ID}")
     else:

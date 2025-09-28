@@ -33,10 +33,10 @@ class DatabaseFactory:
             ValueError: If database type is not supported
         """
         try:
-            if Config.DATABASE_TYPE == "local":
+            if Config.VECTOR_DATABASE_TYPE == "local":
                 logger.info("Creating local FAISS vector database")
                 return VectorDB(user_namespace=user_namespace)
-            elif Config.DATABASE_TYPE == "cloud":
+            elif Config.VECTOR_DATABASE_TYPE == "cloud":
                 if not CHROMADB_AVAILABLE:
                     raise ImportError(
                         "ChromaDB is not installed but cloud mode is requested.\n"
@@ -46,7 +46,7 @@ class DatabaseFactory:
                 logger.info("Creating Chroma Cloud vector database")
                 return ChromaCloudDB(user_namespace=user_namespace)
             else:
-                raise ValueError(f"Unsupported database type: {Config.DATABASE_TYPE}. Use 'local' or 'cloud'")
+                raise ValueError(f"Unsupported database type: {Config.VECTOR_DATABASE_TYPE}. Use 'local' or 'cloud'")
                 
         except Exception as e:
             logger.error(f"Failed to create vector database: {e}")
@@ -57,7 +57,7 @@ class DatabaseFactory:
         """Validate database configuration"""
         try:
             Config.validate_config()
-            logger.info(f"Database configuration validated for type: {Config.DATABASE_TYPE}")
+            logger.info(f"Database configuration validated for type: {Config.VECTOR_DATABASE_TYPE}")
         except Exception as e:
             logger.error(f"Database configuration validation failed: {e}")
             raise

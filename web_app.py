@@ -15,6 +15,7 @@ from api.auth_api import router as auth_router
 from api.vector_chat_api import router as vector_chat_router
 from api.unified_chat_inquiry_api import router as unified_chat_inquiry_router
 from api.users_api import router as users_router
+from api.database_api import router as database_router
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -241,8 +242,9 @@ async def api_info():
 # Include API routers
 app.include_router(auth_router, tags=["Authentication"])
 app.include_router(vector_chat_router, tags=["Vector Chat"])
-app.include_router(unified_chat_inquiry_router, tags=["Chat Inquiry", "Database"])
+app.include_router(unified_chat_inquiry_router, tags=["Chat Inquiry"])
 app.include_router(users_router, tags=["User Management"])
+app.include_router(database_router, tags=["Database"])
 
 
 

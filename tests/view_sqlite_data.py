@@ -11,7 +11,7 @@ from datetime import datetime
 import sys
 
 class SQLiteDataViewer:
-    def __init__(self, db_path="chat_inquiries.db"):
+    def __init__(self, db_path="database/chat_inquiries.db"):
         self.db_path = db_path
         self.conn = None
     

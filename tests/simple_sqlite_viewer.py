@@ -9,7 +9,7 @@ import json
 from datetime import datetime
 
 class SimpleSQLiteViewer:
-    def __init__(self, db_path="chat_inquiries.db"):
+    def __init__(self, db_path="database/chat_inquiries.db"):
         self.db_path = db_path
         self.conn = None
     
