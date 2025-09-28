@@ -4,7 +4,7 @@ from typing import Optional, TypeVar, Generic, List
 import logging
 
 from auth.authentication import AuthHandler, authenticate_user
-from database.user_repository import user_repository
+from database.unified_user_repository import unified_user_repository
 from models.user_models import (
     UserCreate, UserUpdate, UserResponse, UserLogin, UserLoginResponse,
     UserListResponse, UserStatsResponse, UserPasswordUpdate, UserRole, UserStatus,
@@ -37,7 +37,7 @@ async def login(login_data: UserLogin):
         user_id = await authenticate_user(login_data.username, login_data.password)
         if user_id:
             token = auth_handler.create_token(user_id)
-            user_info = await user_repository.get_user_by_id(user_id)
+            user_info = await unified_user_repository.get_user_by_id(user_id)
             return UserLoginResponse(
                 success=True,
                 message="Login successful",
@@ -62,7 +62,7 @@ async def create_token_for_user(token_request: UserTokenRequest):
     """Create a token for a user if their user_id exists in the database"""
     try:
         # Check if user exists in database
-        user_data = await user_repository.get_user_by_id(token_request.user_id)
+        user_data = await unified_user_repository.get_user_by_id(token_request.user_id)
         if not user_data:
             return ApiResponse(
                 success=False,
@@ -101,7 +101,7 @@ async def create_token_for_user(token_request: UserTokenRequest):
 async def register(user_data: UserCreate):
     """Register a new user"""
     try:
-        user_id = await user_repository.create_user(user_data)
+        user_id = await unified_user_repository.create_user(user_data)
         return ApiResponse(
             success=True,
             message="User registered successfully",
@@ -124,7 +124,7 @@ async def register(user_data: UserCreate):
 async def get_current_user_info(current_user: str = Depends(auth_handler.get_current_user)):
     """Get current user information"""
     try:
-        user_data = await user_repository.get_user_by_id(current_user)
+        user_data = await unified_user_repository.get_user_by_id(current_user)
         if user_data:
             return ApiResponse(
                 success=True,
@@ -151,9 +151,9 @@ async def update_current_user(
 ):
     """Update current user information"""
     try:
-        success = await user_repository.update_user(current_user, user_data)
+        success = await unified_user_repository.update_user(current_user, user_data)
         if success:
-            updated_user = await user_repository.get_user_by_id(current_user)
+            updated_user = await unified_user_repository.get_user_by_id(current_user)
             return ApiResponse(
                 success=True,
                 message="User updated successfully",
@@ -184,7 +184,7 @@ async def update_password(
 ):
     """Update current user password"""
     try:
-        success = await user_repository.update_password(
+        success = await unified_user_repository.update_password(
             current_user, 
             password_data.current_password, 
             password_data.new_password

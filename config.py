@@ -25,7 +25,7 @@ class Config:
     COLLECTION_NAME = os.getenv("COLLECTION_NAME", "web_content")
     
     # Database Type: 'local' for FAISS, 'cloud' for Chroma Cloud
-    DATABASE_TYPE = os.getenv("DATABASE_TYPE", "local")
+    VECTOR_DATABASE_TYPE = os.getenv("VECTOR_DATABASE_TYPE", "local")
     
     # Chroma Cloud Configuration
     CHROMA_CLOUD_API_KEY = os.getenv("CHROMA_CLOUD_API_KEY")
@@ -59,22 +59,8 @@ class Config:
     CHAT_BEHAVIOR = os.getenv("CHAT_BEHAVIOR", "knowledge_base")
     
     # Answer Storage Configuration
-    ANSWER_STORAGE_TYPE = os.getenv("ANSWER_STORAGE_TYPE", "sqlite")  # sqlite, mysql, mssql
-    
-    # MySQL Configuration
-    MYSQL_HOST = os.getenv("MYSQL_HOST", "localhost")
-    MYSQL_PORT = int(os.getenv("MYSQL_PORT", "3306"))
-    MYSQL_USER = os.getenv("MYSQL_USER", "root")
-    MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "")
-    MYSQL_DATABASE = os.getenv("MYSQL_DATABASE", "edify_answers")
-    
-    # MSSQL Configuration
-    MSSQL_SERVER = os.getenv("MSSQL_SERVER", "localhost")
-    MSSQL_DATABASE = os.getenv("MSSQL_DATABASE", "edify_answers")
-    MSSQL_USER = os.getenv("MSSQL_USER", "sa")
-    MSSQL_PASSWORD = os.getenv("MSSQL_PASSWORD", "")
-    MSSQL_DRIVER = os.getenv("MSSQL_DRIVER", "ODBC Driver 17 for SQL Server")
-    
+    # Note: Answer storage always tries PostgreSQL first, falls back to SQLite if PostgreSQL fails
+    ANSWER_STORAGE_TYPE = os.getenv("ANSWER_STORAGE_TYPE", "auto")  # auto (postgresql -> sqlite), postgresql, sqlite
     
     # LLM Settings
     LLM_MODEL = os.getenv("LLM_MODEL", "gpt-3.5-turbo")
@@ -114,6 +100,11 @@ class Config:
     POSTGRESQL_CHAT_INQUIRY_TABLE = os.getenv("POSTGRESQL_CHAT_INQUIRY_TABLE", "chat_inquiry_information")
     
     @classmethod
+    def get_postgresql_connection_uri(cls):
+        """Get the PostgreSQL connection URI"""
+        return cls.POSTGRESQL_CONNECTION_URI
+    
+    @classmethod
     def validate_config(cls):
         """Validate configuration values"""
         # Validate required authentication settings
@@ -126,16 +117,16 @@ class Config:
         
         # Validate PostgreSQL configuration
         if not cls.POSTGRESQL_CONNECTION_URI:
-            raise ValueError("POSTGRESQL_CONNECTION_URI is required for PostgreSQL operations")
+            raise ValueError("POSTGRESQL_CONNECTION_URI is required")
         if not cls.POSTGRESQL_DATABASE_NAME:
-            raise ValueError("POSTGRESQL_DATABASE_NAME is required for PostgreSQL operations")
+            raise ValueError("POSTGRESQL_DATABASE_NAME is required")
         
         # Validate OpenAI configuration
         if not cls.OPENAI_API_KEY and cls.EMBEDDING_MODEL == cls.OPENAI_EMBEDDING_MODEL:
             raise ValueError("OPENAI_API_KEY is required when using OpenAI embeddings")
         
         # Validate Chroma Cloud configuration
-        if cls.DATABASE_TYPE == "cloud":
+        if cls.VECTOR_DATABASE_TYPE == "cloud":
             if not cls.CHROMA_CLOUD_API_KEY:
                 raise ValueError("CHROMA_CLOUD_API_KEY is required when using cloud database")
             if not cls.CHROMA_CLOUD_TENANT_ID:

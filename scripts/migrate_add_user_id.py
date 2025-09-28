@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 def migrate_add_user_id_column():
     """Add user_id column to existing chat_inquiry_information table"""
     try:
-        with sqlite3.connect('chat_inquiries.db') as conn:
+        with sqlite3.connect('database/chat_inquiries.db') as conn:
             cursor = conn.cursor()
             
             # Check if user_id column already exists
@@ -47,7 +47,7 @@ def migrate_add_user_id_column():
 def verify_migration():
     """Verify the migration was successful"""
     try:
-        with sqlite3.connect('chat_inquiries.db') as conn:
+        with sqlite3.connect('database/chat_inquiries.db') as conn:
             cursor = conn.cursor()
             
             # Check table structure

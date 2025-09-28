@@ -29,7 +29,7 @@ def test_chat_functionality():
         print("Chat Functionality Test")
         print("=" * 60)
         
-        print(f"Database Type: {Config.DATABASE_TYPE}")
+        print(f"Database Type: {Config.VECTOR_DATABASE_TYPE}")
         print(f"OpenAI API Key: {'Set' if Config.OPENAI_API_KEY else 'Not Set'}")
         
         # Create chatbot instance

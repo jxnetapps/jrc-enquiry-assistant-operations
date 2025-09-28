@@ -4,7 +4,7 @@ from typing import Optional, List
 import logging
 
 from auth.authentication import AuthHandler, authenticate_user
-from database.user_repository import user_repository
+from database.unified_user_repository import unified_user_repository
 from models.user_models import (
     UserCreate, UserUpdate, UserResponse, UserListResponse, UserStatsResponse, 
     UserPasswordUpdate, UserRole, UserStatus
@@ -38,7 +38,7 @@ class UserFilters(BaseModel):
 def require_admin(current_user: str = Depends(auth_handler.get_current_user)):
     """Dependency to require admin access"""
     async def _check_admin():
-        current_user_data = await user_repository.get_user_by_id(current_user)
+        current_user_data = await unified_user_repository.get_user_by_id(current_user)
         if not current_user_data or current_user_data.role != UserRole.ADMIN:
             raise HTTPException(status_code=403, detail="Admin access required")
         return current_user
@@ -58,7 +58,7 @@ async def get_users(
     """Get users with pagination and filtering (Admin only)"""
     try:
         # Get users with advanced filtering
-        users, total_count = await user_repository.get_users_advanced(
+        users, total_count = await unified_user_repository.get_users_advanced(
             page=page,
             page_size=page_size,
             search=search,
@@ -94,7 +94,7 @@ async def get_user_by_id(
 ):
     """Get user by ID (Admin only)"""
     try:
-        user = await user_repository.get_user_by_id(user_id)
+        user = await unified_user_repository.get_user_by_id(user_id)
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         
@@ -116,8 +116,8 @@ async def create_user(
 ):
     """Create a new user (Admin only)"""
     try:
-        user_id = await user_repository.create_user(user_data)
-        created_user = await user_repository.get_user_by_id(user_id)
+        user_id = await unified_user_repository.create_user(user_data)
+        created_user = await unified_user_repository.get_user_by_id(user_id)
         
         return ApiResponse(
             success=True,
@@ -139,13 +139,13 @@ async def update_user(
     """Update user (Admin only)"""
     try:
         # Check if user exists
-        existing_user = await user_repository.get_user_by_id(user_id)
+        existing_user = await unified_user_repository.get_user_by_id(user_id)
         if not existing_user:
             raise HTTPException(status_code=404, detail="User not found")
         
-        success = await user_repository.update_user(user_id, user_data)
+        success = await unified_user_repository.update_user(user_id, user_data)
         if success:
-            updated_user = await user_repository.get_user_by_id(user_id)
+            updated_user = await unified_user_repository.get_user_by_id(user_id)
             return ApiResponse(
                 success=True,
                 message="User updated successfully",
@@ -173,11 +173,11 @@ async def delete_user(
             raise HTTPException(status_code=400, detail="Cannot delete your own account")
         
         # Check if user exists
-        existing_user = await user_repository.get_user_by_id(user_id)
+        existing_user = await unified_user_repository.get_user_by_id(user_id)
         if not existing_user:
             raise HTTPException(status_code=404, detail="User not found")
         
-        success = await user_repository.delete_user(user_id)
+        success = await unified_user_repository.delete_user(user_id)
         if success:
             return ApiResponse(
                 success=True,
@@ -200,11 +200,11 @@ async def reset_user_password(
     """Reset user password (Admin only)"""
     try:
         # Check if user exists
-        existing_user = await user_repository.get_user_by_id(user_id)
+        existing_user = await unified_user_repository.get_user_by_id(user_id)
         if not existing_user:
             raise HTTPException(status_code=404, detail="User not found")
         
-        success = await user_repository.reset_password(user_id, password_data.password)
+        success = await unified_user_repository.reset_password(user_id, password_data.password)
         if success:
             return ApiResponse(
                 success=True,
@@ -226,7 +226,7 @@ async def toggle_user_status(
     """Toggle user status (Admin only)"""
     try:
         # Check if user exists
-        existing_user = await user_repository.get_user_by_id(user_id)
+        existing_user = await unified_user_repository.get_user_by_id(user_id)
         if not existing_user:
             raise HTTPException(status_code=404, detail="User not found")
         
@@ -234,9 +234,9 @@ async def toggle_user_status(
         if user_id == current_user:
             raise HTTPException(status_code=400, detail="Cannot change your own status")
         
-        success = await user_repository.toggle_user_status(user_id)
+        success = await unified_user_repository.toggle_user_status(user_id)
         if success:
-            updated_user = await user_repository.get_user_by_id(user_id)
+            updated_user = await unified_user_repository.get_user_by_id(user_id)
             return ApiResponse(
                 success=True,
                 message=f"User status changed to {updated_user.status}",
@@ -256,7 +256,7 @@ async def get_user_stats(
 ):
     """Get user statistics (Admin only)"""
     try:
-        stats = await user_repository.get_user_stats()
+        stats = await unified_user_repository.get_user_stats()
         return ApiResponse(
             success=True,
             message="User statistics retrieved successfully",

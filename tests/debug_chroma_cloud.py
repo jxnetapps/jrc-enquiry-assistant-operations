@@ -28,7 +28,7 @@ def debug_chroma_cloud_config():
     print("=" * 60)
     
     # Check configuration values
-    print(f"Database Type: {Config.DATABASE_TYPE}")
+    print(f"Database Type: {Config.VECTOR_DATABASE_TYPE}")
     print(f"Chroma Cloud API Key: {Config.CHROMA_CLOUD_API_KEY[:10]}..." if Config.CHROMA_CLOUD_API_KEY else "NOT SET")
     print(f"Chroma Cloud Tenant ID: {Config.CHROMA_CLOUD_TENANT_ID}")
     print(f"Chroma Cloud Database ID: {Config.CHROMA_CLOUD_DATABASE_ID}")
@@ -46,7 +46,7 @@ def debug_chroma_cloud_config():
 5. Generate an API key (this will be your API_KEY)
 6. Update your .env file with these values:
 
-DATABASE_TYPE=cloud
+VECTOR_DATABASE_TYPE=cloud
 CHROMA_CLOUD_API_KEY=your_api_key_here
 CHROMA_CLOUD_TENANT_ID=your_tenant_id_here
 CHROMA_CLOUD_DATABASE_ID=your_database_id_here
@@ -55,8 +55,8 @@ CHROMA_CLOUD_COLLECTION_NAME=web_content
 7. The API endpoint will be: https://{TENANT_ID}.trychroma.com
 """)
     
-    if Config.DATABASE_TYPE != "cloud":
-        print("❌ DATABASE_TYPE is not set to 'cloud'")
+    if Config.VECTOR_DATABASE_TYPE != "cloud":
+        print("❌ VECTOR_DATABASE_TYPE is not set to 'cloud'")
         return False
     
     if not Config.CHROMA_CLOUD_API_KEY:

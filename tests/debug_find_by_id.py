@@ -4,13 +4,13 @@ Debug script to test find_by_id functionality
 """
 
 import asyncio
-from database.chat_inquiry_repository import ChatInquiryRepository
+from database.unified_inquiry_repository import unified_inquiry_repository
 
 async def test_find_by_id():
     """Test the find_by_id method"""
     print("🔍 Testing find_by_id method...")
     
-    repository = ChatInquiryRepository()
+    repository = unified_inquiry_repository
     
     # Test with ID 6
     print("\nTesting with ID 6:")

@@ -25,11 +25,11 @@ def test_configuration():
     print("Testing Configuration...")
     print("-" * 30)
     
-    print(f"Database Type: {Config.DATABASE_TYPE}")
+    print(f"Database Type: {Config.VECTOR_DATABASE_TYPE}")
     print(f"Chat Behavior: {Config.CHAT_BEHAVIOR}")
     print(f"OpenAI API Key: {'Set' if Config.OPENAI_API_KEY else 'Not Set'}")
     
-    if Config.DATABASE_TYPE == "cloud":
+    if Config.VECTOR_DATABASE_TYPE == "cloud":
         print(f"Chroma Cloud API Key: {'Set' if Config.CHROMA_CLOUD_API_KEY else 'Not Set'}")
         print(f"Chroma Cloud Tenant ID: {'Set' if Config.CHROMA_CLOUD_TENANT_ID else 'Not Set'}")
         print(f"Chroma Cloud Database ID: {'Set' if Config.CHROMA_CLOUD_DATABASE_ID else 'Not Set'}")

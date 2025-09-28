@@ -141,7 +141,7 @@ def main():
     print("Chat Mode Testing")
     print("=" * 60)
     print(f"Current CHAT_BEHAVIOR: {Config.CHAT_BEHAVIOR}")
-    print(f"Database Type: {Config.DATABASE_TYPE}")
+    print(f"Database Type: {Config.VECTOR_DATABASE_TYPE}")
     
     # Test knowledge_base mode
     kb_success = test_knowledge_base_mode()

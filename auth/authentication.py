@@ -4,7 +4,7 @@ import jwt
 from datetime import datetime, timedelta
 from typing import Optional
 from config import Config
-from database.user_repository import user_repository
+from database.unified_user_repository import unified_user_repository
 
 security = HTTPBearer()
 
@@ -40,7 +40,7 @@ class AuthHandler:
             raise HTTPException(status_code=401, detail="Invalid credentials")
         
         # Verify user still exists in database
-        user = await user_repository.get_user_by_id(user_id)
+        user = await unified_user_repository.get_user_by_id(user_id)
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
         
@@ -52,4 +52,7 @@ class AuthHandler:
 
 async def authenticate_user(username: str, password: str) -> Optional[str]:
     """Authenticate user and return user_id if successful."""
-    return await user_repository.authenticate_user(username, password)
+    user_response = await unified_user_repository.authenticate_user(username, password)
+    if user_response:
+        return user_response.user_id
+    return None

@@ -32,8 +32,9 @@ class PostgreSQLConnection:
         """Establish connection to PostgreSQL with fallback to SQLite"""
         try:
             # Try async connection first
+            connection_uri = Config.get_postgresql_connection_uri()
             self._async_engine = create_async_engine(
-                Config.POSTGRESQL_CONNECTION_URI.replace("postgresql://", "postgresql+asyncpg://"),
+                connection_uri.replace("postgresql://", "postgresql+asyncpg://"),
                 echo=False,
                 pool_pre_ping=True,
                 pool_recycle=300
@@ -54,7 +55,7 @@ class PostgreSQLConnection:
             
             # Also create sync engine for compatibility
             self._sync_engine = create_engine(
-                Config.POSTGRESQL_CONNECTION_URI,
+                connection_uri,
                 echo=False,
                 pool_pre_ping=True,
                 pool_recycle=300

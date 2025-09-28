@@ -37,14 +37,14 @@ A sophisticated chatbot that crawls websites, processes content, and provides in
    
    **Local Database (Default - FAISS)**
    ```bash
-   DATABASE_TYPE=local
+   VECTOR_DATABASE_TYPE=local
    CHROMA_DB_PATH=./chroma_db
    COLLECTION_NAME=web_content
    ```
    
    **Chroma Cloud Database**
    ```bash
-   DATABASE_TYPE=cloud
+   VECTOR_DATABASE_TYPE=cloud
    CHROMA_CLOUD_API_KEY=your_api_key
    CHROMA_CLOUD_TENANT_ID=your_tenant_id
    CHROMA_CLOUD_DATABASE_ID=your_database_id
@@ -85,7 +85,7 @@ A sophisticated chatbot that crawls websites, processes content, and provides in
    Create a `.env` file with your configuration:
    ```bash
    # Database Configuration
-   DATABASE_TYPE=local  # or 'cloud' for Chroma Cloud
+   VECTOR_DATABASE_TYPE=local  # or 'cloud' for Chroma Cloud
    CHAT_BEHAVIOR=knowledge_base  # or 'pre_trained' for structured flow
    
    # OpenAI Configuration (optional)
@@ -126,7 +126,7 @@ A sophisticated chatbot that crawls websites, processes content, and provides in
 ```
 .\venv\Scripts\activate.ps1
 OR
-& C:/Dev/Trainings/python/web-scrapper/web-chatbot-enhanced/venv/Scripts/Activate.ps1
+& C:/Dev/Trainings/python/web-scrapper/jrc-enquiry-assistant-operations/venv/Scripts/Activate.ps1
 ```
 
 Run the comprehensive chat mode test:
@@ -220,14 +220,14 @@ Test both local and cloud database modes:
 **Local Database:**
 ```bash
 # Set in .env
-DATABASE_TYPE=local
+VECTOR_DATABASE_TYPE=local
 python test_database_config.py
 ```
 
 **Chroma Cloud:**
 ```bash
 # Set in .env
-DATABASE_TYPE=cloud
+VECTOR_DATABASE_TYPE=cloud
 python test_cloud_config.py
 ```
 

@@ -1,6 +1,6 @@
 """
 Database storage for collected chat answers.
-Supports MySQL and MSSQL databases.
+Supports PostgreSQL and SQLite databases.
 """
 
 import os
@@ -15,67 +15,58 @@ class AnswerStorage:
     """Storage class for collected chat answers"""
     
     def __init__(self):
-        self.db_type = Config.ANSWER_STORAGE_TYPE
+        self.db_type = None  # Will be set during database setup
         self.connection = None
         self._setup_database()
     
     def _setup_database(self):
-        """Setup database connection based on configuration"""
-        try:
-            if self.db_type == "mysql":
-                self._setup_mysql()
-            elif self.db_type == "mssql":
-                self._setup_mssql()
-            elif self.db_type == "sqlite":
-                self._setup_sqlite()
-            else:
-                logger.warning(f"Unknown database type: {self.db_type}. Using SQLite fallback.")
-                self._setup_sqlite()
-        except Exception as e:
-            logger.error(f"Failed to setup database: {e}")
-            # Fallback to SQLite
+        """Setup database connection - tries PostgreSQL first by default, respects config"""
+        config_type = Config.ANSWER_STORAGE_TYPE
+        
+        # If explicitly set to sqlite, use SQLite only
+        if config_type == "sqlite":
+            logger.info("Using SQLite for answer storage (explicitly configured)")
             self._setup_sqlite()
-    
-    def _setup_mysql(self):
-        """Setup MySQL connection"""
+            self.db_type = "sqlite"
+            return
+        
+        # If explicitly set to postgresql, use PostgreSQL only (no fallback)
+        if config_type == "postgresql":
+            logger.info("Using PostgreSQL for answer storage (explicitly configured)")
+            self._setup_postgresql()
+            self.db_type = "postgresql"
+            return
+        
+        # Default behavior: try PostgreSQL first, fallback to SQLite
         try:
-            import pymysql
-            self.connection = pymysql.connect(
-                host=Config.MYSQL_HOST,
-                port=Config.MYSQL_PORT,
-                user=Config.MYSQL_USER,
-                password=Config.MYSQL_PASSWORD,
-                database=Config.MYSQL_DATABASE,
-                charset='utf8mb4'
-            )
-            self._create_table_mysql()
-            logger.info("MySQL connection established")
-        except ImportError:
-            logger.error("PyMySQL not installed. Install with: pip install PyMySQL")
-            raise
+            logger.info("Attempting to connect to PostgreSQL for answer storage...")
+            self._setup_postgresql()
+            self.db_type = "postgresql"
+            logger.info("Successfully connected to PostgreSQL for answer storage")
         except Exception as e:
-            logger.error(f"MySQL connection failed: {e}")
-            raise
+            logger.warning(f"PostgreSQL connection failed: {e}")
+            logger.info("Falling back to SQLite for answer storage...")
+            try:
+                self._setup_sqlite()
+                self.db_type = "sqlite"
+                logger.info("Successfully connected to SQLite for answer storage")
+            except Exception as sqlite_error:
+                logger.error(f"SQLite fallback also failed: {sqlite_error}")
+                raise
     
-    def _setup_mssql(self):
-        """Setup MSSQL connection"""
+    def _setup_postgresql(self):
+        """Setup PostgreSQL connection"""
         try:
-            import pyodbc
-            connection_string = (
-                f"DRIVER={{{Config.MSSQL_DRIVER}}};"
-                f"SERVER={Config.MSSQL_SERVER};"
-                f"DATABASE={Config.MSSQL_DATABASE};"
-                f"UID={Config.MSSQL_USER};"
-                f"PWD={Config.MSSQL_PASSWORD};"
-            )
-            self.connection = pyodbc.connect(connection_string)
-            self._create_table_mssql()
-            logger.info("MSSQL connection established")
-        except ImportError:
-            logger.error("pyodbc not installed. Install with: pip install pyodbc")
-            raise
+            import psycopg2
+            from config import Config
+            
+            # Use the same connection URI as the main PostgreSQL connection
+            connection_uri = Config.get_postgresql_connection_uri()
+            self.connection = psycopg2.connect(connection_uri)
+            self._create_table_postgresql()
+            logger.info("PostgreSQL connection established for answer storage")
         except Exception as e:
-            logger.error(f"MSSQL connection failed: {e}")
+            logger.error(f"PostgreSQL connection failed: {e}")
             raise
     
     def _setup_sqlite(self):
@@ -90,57 +81,35 @@ class AnswerStorage:
             logger.error(f"SQLite connection failed: {e}")
             raise
     
-    def _create_table_mysql(self):
-        """Create table for MySQL"""
+    def _create_table_postgresql(self):
+        """Create table for PostgreSQL"""
         cursor = self.connection.cursor()
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS collected_answers (
-                id INT AUTO_INCREMENT PRIMARY KEY,
+                id SERIAL PRIMARY KEY,
                 user_id VARCHAR(255) NOT NULL,
                 session_id VARCHAR(255) NOT NULL,
                 parent_type VARCHAR(50),
                 school_type VARCHAR(50),
                 name VARCHAR(255),
                 mobile VARCHAR(20),
-                additional_data JSON,
+                additional_data JSONB,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                INDEX idx_user_id (user_id),
-                INDEX idx_session_id (session_id),
-                INDEX idx_created_at (created_at)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_user_id ON collected_answers(user_id)
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_session_id ON collected_answers(session_id)
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_created_at ON collected_answers(created_at)
         """)
         self.connection.commit()
         cursor.close()
     
-    def _create_table_mssql(self):
-        """Create table for MSSQL"""
-        cursor = self.connection.cursor()
-        cursor.execute("""
-            IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='collected_answers' AND xtype='U')
-            CREATE TABLE collected_answers (
-                id INT IDENTITY(1,1) PRIMARY KEY,
-                user_id NVARCHAR(255) NOT NULL,
-                session_id NVARCHAR(255) NOT NULL,
-                parent_type NVARCHAR(50),
-                school_type NVARCHAR(50),
-                name NVARCHAR(255),
-                mobile NVARCHAR(20),
-                additional_data NVARCHAR(MAX),
-                created_at DATETIME2 DEFAULT GETDATE(),
-                updated_at DATETIME2 DEFAULT GETDATE()
-            )
-        """)
-        cursor.execute("""
-            IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name='idx_user_id')
-            CREATE INDEX idx_user_id ON collected_answers(user_id)
-        """)
-        cursor.execute("""
-            IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name='idx_session_id')
-            CREATE INDEX idx_session_id ON collected_answers(session_id)
-        """)
-        self.connection.commit()
-        cursor.close()
     
     def _create_table_sqlite(self):
         """Create table for SQLite"""
@@ -174,15 +143,10 @@ class AnswerStorage:
             cursor = self.connection.cursor()
             
             # Check if record exists
-            if self.db_type == "mysql":
+            if self.db_type == "postgresql":
                 cursor.execute("""
                     SELECT id FROM collected_answers 
                     WHERE user_id = %s AND session_id = %s
-                """, (user_id, session_id))
-            elif self.db_type == "mssql":
-                cursor.execute("""
-                    SELECT id FROM collected_answers 
-                    WHERE user_id = ? AND session_id = ?
                 """, (user_id, session_id))
             else:  # SQLite
                 cursor.execute("""
@@ -194,27 +158,12 @@ class AnswerStorage:
             
             if existing:
                 # Update existing record
-                if self.db_type == "mysql":
+                if self.db_type == "postgresql":
                     cursor.execute("""
                         UPDATE collected_answers 
                         SET parent_type = %s, school_type = %s, name = %s, mobile = %s,
                             additional_data = %s, updated_at = CURRENT_TIMESTAMP
                         WHERE user_id = %s AND session_id = %s
-                    """, (
-                        collected_data.get('parent_type'),
-                        collected_data.get('school_type'),
-                        collected_data.get('name'),
-                        collected_data.get('mobile'),
-                        str(collected_data),
-                        user_id,
-                        session_id
-                    ))
-                elif self.db_type == "mssql":
-                    cursor.execute("""
-                        UPDATE collected_answers 
-                        SET parent_type = ?, school_type = ?, name = ?, mobile = ?,
-                            additional_data = ?, updated_at = GETDATE()
-                        WHERE user_id = ? AND session_id = ?
                     """, (
                         collected_data.get('parent_type'),
                         collected_data.get('school_type'),
@@ -241,25 +190,11 @@ class AnswerStorage:
                     ))
             else:
                 # Insert new record
-                if self.db_type == "mysql":
+                if self.db_type == "postgresql":
                     cursor.execute("""
                         INSERT INTO collected_answers 
                         (user_id, session_id, parent_type, school_type, name, mobile, additional_data)
                         VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    """, (
-                        user_id,
-                        session_id,
-                        collected_data.get('parent_type'),
-                        collected_data.get('school_type'),
-                        collected_data.get('name'),
-                        collected_data.get('mobile'),
-                        str(collected_data)
-                    ))
-                elif self.db_type == "mssql":
-                    cursor.execute("""
-                        INSERT INTO collected_answers 
-                        (user_id, session_id, parent_type, school_type, name, mobile, additional_data)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
                     """, (
                         user_id,
                         session_id,
@@ -298,17 +233,11 @@ class AnswerStorage:
         try:
             cursor = self.connection.cursor()
             
-            if self.db_type == "mysql":
+            if self.db_type == "postgresql":
                 cursor.execute("""
                     SELECT parent_type, school_type, name, mobile, additional_data, created_at
                     FROM collected_answers 
                     WHERE user_id = %s AND session_id = %s
-                """, (user_id, session_id))
-            elif self.db_type == "mssql":
-                cursor.execute("""
-                    SELECT parent_type, school_type, name, mobile, additional_data, created_at
-                    FROM collected_answers 
-                    WHERE user_id = ? AND session_id = ?
                 """, (user_id, session_id))
             else:  # SQLite
                 cursor.execute("""
@@ -340,20 +269,13 @@ class AnswerStorage:
         try:
             cursor = self.connection.cursor()
             
-            if self.db_type == "mysql":
+            if self.db_type == "postgresql":
                 cursor.execute("""
                     SELECT user_id, session_id, parent_type, school_type, name, mobile, 
                            additional_data, created_at, updated_at
                     FROM collected_answers 
                     ORDER BY created_at DESC 
                     LIMIT %s
-                """, (limit,))
-            elif self.db_type == "mssql":
-                cursor.execute("""
-                    SELECT TOP ? user_id, session_id, parent_type, school_type, name, mobile, 
-                           additional_data, created_at, updated_at
-                    FROM collected_answers 
-                    ORDER BY created_at DESC
                 """, (limit,))
             else:  # SQLite
                 cursor.execute("""

@@ -1,20 +1,14 @@
 """
-Unified Chat Inquiry API with PostgreSQL connectivity testing and data export functionality
+Unified Chat Inquiry API - Clean version without database endpoints
 """
 
-from fastapi import APIRouter, HTTPException, Query, Depends, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Query, Depends
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
 from datetime import datetime
 import logging
-import asyncio
-import json
-import csv
-import io
 
-from database.chat_inquiry_repository import ChatInquiryRepository
-from database.postgresql_connection import postgresql_connection
-from database.sqlite_inquiry_repository import SQLiteInquiryRepository
+from database.unified_inquiry_repository import unified_inquiry_repository
 from models.chat_inquiry_models import (
     ChatInquiryCreate, 
     ChatInquiryResponse, 
@@ -26,12 +20,11 @@ from auth.authentication import AuthHandler
 logger = logging.getLogger(__name__)
 
 # Create router
-router = APIRouter(prefix="/api/chat-inquiry", tags=["Unified Chat Inquiry Management"])
+router = APIRouter(prefix="/api/chat-inquiry", tags=["Chat Inquiry"])
 
 # Initialize components
 auth_handler = AuthHandler()
-inquiry_repository = ChatInquiryRepository()
-sqlite_repository = SQLiteInquiryRepository()
+inquiry_repository = unified_inquiry_repository
 
 # Enhanced response models
 class PaginatedResponse(BaseModel):
@@ -55,40 +48,8 @@ class BulkInsertResponse(BaseModel):
     created_ids: List[str]
     errors: List[Dict[str, Any]]
 
-class DatabaseStatusResponse(BaseModel):
-    """Database status response"""
-    postgresql_connected: bool
-    postgresql_status: str
-    sqlite_available: bool
-    sqlite_count: int
-    postgresql_count: int
-    last_checked: datetime
-
-class ExportStatusResponse(BaseModel):
-    """Export status response"""
-    status: str  # "idle", "running", "completed", "failed"
-    progress: int  # 0-100
-    total_records: int
-    processed_records: int
-    failed_records: int
-    start_time: Optional[datetime]
-    end_time: Optional[datetime]
-    error_message: Optional[str]
-
-# Global export status
-export_status = ExportStatusResponse(
-    status="idle",
-    progress=0,
-    total_records=0,
-    processed_records=0,
-    failed_records=0,
-    start_time=None,
-    end_time=None,
-    error_message=None
-)
-
 # ============================================================================
-# AUTHENTICATION ENDPOINTS (Original API functionality)
+# AUTHENTICATION ENDPOINTS
 # ============================================================================
 
 @router.post("", response_model=ApiResponse[Dict[str, Any]])
@@ -118,30 +79,7 @@ async def create_chat_inquiry(inquiry_data: ChatInquiryCreate, current_user: dic
             error=str(e)
         )
 
-@router.get("/{inquiry_id}", response_model=ApiResponse[ChatInquiryResponse])
-async def get_chat_inquiry(inquiry_id: str, current_user: dict = Depends(auth_handler.get_current_user)):
-    """Get a chat inquiry by ID (Authenticated)"""
-    try:
-        inquiry = await inquiry_repository.find_by_id(inquiry_id)
-        if not inquiry:
-            return ApiResponse(
-                success=False,
-                message="Inquiry not found",
-                error="No inquiry found with the given ID"
-            )
-        
-        return ApiResponse(
-            success=True,
-            message="Inquiry retrieved successfully",
-            data=inquiry
-        )
-    except Exception as e:
-        logger.error(f"Error getting inquiry by ID: {e}")
-        return ApiResponse(
-            success=False,
-            message="Failed to get inquiry",
-            error=str(e)
-        )
+# Moved to after public routes to avoid route conflicts
 
 @router.put("/{inquiry_id}", response_model=ApiResponse[Dict[str, Any]])
 async def update_chat_inquiry(
@@ -152,7 +90,7 @@ async def update_chat_inquiry(
     """Update a chat inquiry by ID (Authenticated)"""
     try:
         update_dict = inquiry_data.dict(exclude_unset=True)
-        success = await inquiry_repository.update_by_id(inquiry_id, update_dict)
+        success = await inquiry_repository.update_inquiry(inquiry_id, update_dict)
         
         if not success:
             return ApiResponse(
@@ -178,7 +116,7 @@ async def update_chat_inquiry(
 async def delete_chat_inquiry(inquiry_id: str, current_user: dict = Depends(auth_handler.get_current_user)):
     """Delete a chat inquiry by ID (Authenticated)"""
     try:
-        success = await inquiry_repository.delete_by_id(inquiry_id)
+        success = await inquiry_repository.delete_inquiry(inquiry_id)
         
         if not success:
             return ApiResponse(
@@ -201,27 +139,12 @@ async def delete_chat_inquiry(inquiry_id: str, current_user: dict = Depends(auth
         )
 
 # ============================================================================
-# PUBLIC ENDPOINTS (Enhanced API functionality)
+# PUBLIC ENDPOINTS
 # ============================================================================
 
 @router.post("/public", response_model=ApiResponse[ChatInquiryResponse])
 async def create_inquiry_public(inquiry: ChatInquiryCreate):
-    """
-    Create a new chat inquiry record (Public - No Authentication Required)
-    
-    - **parentType**: Type of parent (New Parent, Existing Parent, Alumni)
-    - **schoolType**: Type of school (Day School, Boarding School, International School)
-    - **firstName**: Parent's first name
-    - **mobile**: Mobile number
-    - **email**: Email address
-    - **city**: City name
-    - **childName**: Child's name
-    - **grade**: Grade/Class
-    - **academicYear**: Academic year
-    - **dateOfBirth**: Child's date of birth
-    - **schoolName**: School name
-    - **user_id**: Optional user ID for tracking
-    """
+    """Create a new chat inquiry record (Public - No Authentication Required)"""
     try:
         inquiry_dict = inquiry.dict()
         inquiry_id = await inquiry_repository.create_inquiry(inquiry_dict)
@@ -250,51 +173,23 @@ async def create_inquiry_public(inquiry: ChatInquiryCreate):
 async def get_all_inquiries_public(
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(10, ge=1, le=100, description="Number of items per page"),
-    parent_type: Optional[str] = Query(None, description="Filter by parent type"),
-    school_type: Optional[str] = Query(None, description="Filter by school type"),
-    grade: Optional[str] = Query(None, description="Filter by grade"),
-    city: Optional[str] = Query(None, description="Filter by city"),
-    status: Optional[str] = Query(None, description="Filter by status"),
-    search: Optional[str] = Query(None, description="Search in names and school"),
+    search: Optional[str] = Query(None, description="Search in question or answer"),
     sort_by: str = Query("created_at", description="Sort field"),
     sort_order: str = Query("desc", regex="^(asc|desc)$", description="Sort order")
 ):
-    """
-    Get all inquiries with pagination and filtering (Public - No Authentication Required)
-    """
+    """Get all inquiries with pagination and filtering (Public - No Authentication Required)"""
     try:
-        # Build filter criteria
-        filter_criteria = {}
-        if parent_type:
-            filter_criteria["parentType"] = parent_type
-        if school_type:
-            filter_criteria["schoolType"] = school_type
-        if grade:
-            filter_criteria["grade"] = grade
-        if city:
-            filter_criteria["city"] = city
-        if status:
-            filter_criteria["status"] = status
-        if search:
-            filter_criteria["search_text"] = search
-        
         # Calculate pagination
         skip = (page - 1) * page_size
         
-        # Get sort order
-        sort_order_int = -1 if sort_order == "desc" else 1
-        
         # Get inquiries
-        inquiries = await inquiry_repository.find_many(
-            filter_dict=filter_criteria,
-            skip=skip,
-            limit=page_size,
-            sort_field=sort_by,
-            sort_order=sort_order_int
-        )
+        if search:
+            inquiries = await inquiry_repository.search_inquiries(search, page_size)
+        else:
+            inquiries = await inquiry_repository.get_all_inquiries(skip, page_size)
         
         # Get total count
-        total_count = await inquiry_repository.count_documents(filter_criteria)
+        total_count = await inquiry_repository.count_documents({})
         
         # Calculate pagination info
         total_pages = (total_count + page_size - 1) // page_size
@@ -447,6 +342,35 @@ async def bulk_create_inquiries(bulk_request: BulkInsertRequest):
         )
 
 # ============================================================================
+# AUTHENTICATED ENDPOINTS (moved after public to avoid route conflicts)
+# ============================================================================
+
+@router.get("/{inquiry_id}", response_model=ApiResponse[ChatInquiryResponse])
+async def get_chat_inquiry(inquiry_id: str, current_user: dict = Depends(auth_handler.get_current_user)):
+    """Get a chat inquiry by ID (Authenticated)"""
+    try:
+        inquiry = await inquiry_repository.find_by_id(inquiry_id)
+        if not inquiry:
+            return ApiResponse(
+                success=False,
+                message="Inquiry not found",
+                error="No inquiry found with the given ID"
+            )
+        
+        return ApiResponse(
+            success=True,
+            message="Inquiry retrieved successfully",
+            data=inquiry
+        )
+    except Exception as e:
+        logger.error(f"Error getting inquiry by ID: {e}")
+        return ApiResponse(
+            success=False,
+            message="Failed to get inquiry",
+            error=str(e)
+        )
+
+# ============================================================================
 # STATISTICS AND ANALYTICS
 # ============================================================================
 
@@ -468,340 +392,30 @@ async def get_inquiry_stats():
             error=str(e)
         )
 
-# ============================================================================
-# DATABASE CONNECTIVITY AND EXPORT
-# ============================================================================
-
-@router.get("/database/status", response_model=ApiResponse[DatabaseStatusResponse])
-async def get_database_status():
-    """Get database connectivity status and counts"""
-    try:
-        # Check PostgreSQL connection
-        postgresql_connected = await postgresql_connection.health_check()
-        postgresql_status = "Connected" if postgresql_connected else "Disconnected"
-        
-        # Get PostgreSQL count
-        postgresql_count = 0
-        if postgresql_connected:
-            try:
-                postgresql_count = await inquiry_repository.count_documents({})
-            except Exception as e:
-                logger.warning(f"Error getting PostgreSQL count: {e}")
-        
-        # Get SQLite count
-        sqlite_count = 0
-        sqlite_available = True
-        try:
-            sqlite_count = await sqlite_repository.count_documents({})
-        except Exception as e:
-            logger.warning(f"Error getting SQLite count: {e}")
-            sqlite_available = False
-        
-        status_response = DatabaseStatusResponse(
-            postgresql_connected=postgresql_connected,
-            postgresql_status=postgresql_status,
-            sqlite_available=sqlite_available,
-            sqlite_count=sqlite_count,
-            postgresql_count=postgresql_count,
-            last_checked=datetime.now()
-        )
-        
-        return ApiResponse(
-            success=True,
-            message="Database status retrieved successfully",
-            data=status_response
-        )
-    except Exception as e:
-        logger.error(f"Error getting database status: {e}")
-        return ApiResponse(
-            success=False,
-            message="Failed to get database status",
-            error=str(e)
-        )
-
-@router.post("/database/test-postgres", response_model=ApiResponse[Dict[str, Any]])
-async def test_postgres_connection():
-    """Test PostgreSQL connection and create tables if needed"""
-    try:
-        # Test connection
-        connected = await postgresql_connection.health_check()
-        
-        if not connected:
-            # Try to connect
-            await postgresql_connection.connect()
-            connected = await postgresql_connection.health_check()
-        
-        if connected:
-            # Create tables
-            tables_created = await postgresql_connection.create_tables()
-            
-            return ApiResponse(
-                success=True,
-                message="PostgreSQL connection successful",
-                data={
-                    "connected": True,
-                    "tables_created": tables_created,
-                    "timestamp": datetime.now().isoformat()
-                }
-            )
-        else:
-            return ApiResponse(
-                success=False,
-                message="PostgreSQL connection failed",
-                error="Unable to connect to PostgreSQL database"
-            )
-    except Exception as e:
-        logger.error(f"Error testing PostgreSQL connection: {e}")
-        return ApiResponse(
-            success=False,
-            message="PostgreSQL connection test failed",
-            error=str(e)
-        )
-
-@router.get("/database/export-status", response_model=ApiResponse[ExportStatusResponse])
-async def get_export_status():
-    """Get current export status"""
-    return ApiResponse(
-        success=True,
-        message="Export status retrieved successfully",
-        data=export_status
-    )
-
-@router.post("/database/export-sqlite-to-postgres", response_model=ApiResponse[Dict[str, Any]])
-async def start_sqlite_to_postgres_export(background_tasks: BackgroundTasks):
-    """Start exporting SQLite data to PostgreSQL"""
-    global export_status
-    
-    if export_status.status == "running":
-        return ApiResponse(
-            success=False,
-            message="Export is already running",
-            error="An export operation is currently in progress"
-        )
-    
-    # Start background task
-    background_tasks.add_task(export_sqlite_to_postgres)
-    
-    return ApiResponse(
-        success=True,
-        message="Export started successfully",
-        data={
-            "status": "started",
-            "timestamp": datetime.now().isoformat()
-        }
-    )
-
-async def export_sqlite_to_postgres():
-    """Background task to export SQLite data to PostgreSQL"""
-    global export_status
-    
-    try:
-        # Update status
-        export_status.status = "running"
-        export_status.start_time = datetime.now()
-        export_status.end_time = None
-        export_status.error_message = None
-        export_status.progress = 0
-        export_status.processed_records = 0
-        export_status.failed_records = 0
-        
-        # Check PostgreSQL connection
-        if not await postgresql_connection.health_check():
-            await postgresql_connection.connect()
-            if not await postgresql_connection.health_check():
-                raise Exception("PostgreSQL connection failed")
-        
-        # Get all SQLite records
-        sqlite_records = await sqlite_repository.find_all({}, skip=0, limit=10000)
-        export_status.total_records = len(sqlite_records)
-        
-        if export_status.total_records == 0:
-            export_status.status = "completed"
-            export_status.end_time = datetime.now()
-            export_status.progress = 100
-            return
-        
-        # Export records to PostgreSQL
-        for i, record in enumerate(sqlite_records):
-            try:
-                # Convert SQLite record to PostgreSQL format
-                inquiry_data = {
-                    'user_id': record.get('user_id'),
-                    'parentType': record.get('parentType'),
-                    'schoolType': record.get('schoolType'),
-                    'firstName': record.get('firstName'),
-                    'mobile': record.get('mobile'),
-                    'email': record.get('email'),
-                    'city': record.get('city'),
-                    'childName': record.get('childName'),
-                    'grade': record.get('grade'),
-                    'academicYear': record.get('academicYear'),
-                    'dateOfBirth': record.get('dateOfBirth'),
-                    'schoolName': record.get('schoolName')
-                }
-                
-                # Create in PostgreSQL
-                await inquiry_repository.create_inquiry(inquiry_data)
-                export_status.processed_records += 1
-                
-            except Exception as e:
-                logger.warning(f"Error exporting record {i}: {e}")
-                export_status.failed_records += 1
-            
-            # Update progress
-            export_status.progress = int((i + 1) / export_status.total_records * 100)
-        
-        # Mark as completed
-        export_status.status = "completed"
-        export_status.end_time = datetime.now()
-        export_status.progress = 100
-        
-        logger.info(f"Export completed: {export_status.processed_records} successful, {export_status.failed_records} failed")
-        
-    except Exception as e:
-        logger.error(f"Export failed: {e}")
-        export_status.status = "failed"
-        export_status.end_time = datetime.now()
-        export_status.error_message = str(e)
-
-@router.post("/database/reset-export-status", response_model=ApiResponse[Dict[str, Any]])
-async def reset_export_status():
-    """Reset export status to idle"""
-    global export_status
-    
-    export_status = ExportStatusResponse(
-        status="idle",
-        progress=0,
-        total_records=0,
-        processed_records=0,
-        failed_records=0,
-        start_time=None,
-        end_time=None,
-        error_message=None
-    )
-    
-    return ApiResponse(
-        success=True,
-        message="Export status reset successfully",
-        data={"status": "reset"}
-    )
-
-# ============================================================================
-# DATA EXPORT (JSON/CSV)
-# ============================================================================
-
-@router.get("/export/json", response_model=ApiResponse[Dict[str, Any]])
-async def export_to_json(
-    page: int = Query(1, ge=1, description="Page number"),
-    page_size: int = Query(1000, ge=1, le=10000, description="Number of items per page")
-):
-    """Export inquiries to JSON format"""
-    try:
-        skip = (page - 1) * page_size
-        inquiries = await inquiry_repository.find_many({}, skip=skip, limit=page_size)
-        
-        export_data = {
-            "export_info": {
-                "timestamp": datetime.now().isoformat(),
-                "page": page,
-                "page_size": page_size,
-                "total_exported": len(inquiries)
-            },
-            "inquiries": inquiries
-        }
-        
-        return ApiResponse(
-            success=True,
-            message="JSON export completed successfully",
-            data=export_data
-        )
-    except Exception as e:
-        logger.error(f"Error exporting to JSON: {e}")
-        return ApiResponse(
-            success=False,
-            message="Failed to export to JSON",
-            error=str(e)
-        )
-
-@router.get("/export/csv")
-async def export_to_csv(
-    page: int = Query(1, ge=1, description="Page number"),
-    page_size: int = Query(1000, ge=1, le=10000, description="Number of items per page")
-):
-    """Export inquiries to CSV format"""
-    try:
-        skip = (page - 1) * page_size
-        inquiries = await inquiry_repository.find_many({}, skip=skip, limit=page_size)
-        
-        if not inquiries:
-            raise HTTPException(status_code=404, detail="No data to export")
-        
-        # Create CSV content
-        output = io.StringIO()
-        fieldnames = [
-            'id', 'user_id', 'parentType', 'schoolType', 'firstName', 'mobile',
-            'email', 'city', 'childName', 'grade', 'academicYear', 'dateOfBirth',
-            'schoolName', 'status', 'source', 'created_at', 'updated_at'
-        ]
-        
-        writer = csv.DictWriter(output, fieldnames=fieldnames)
-        writer.writeheader()
-        
-        for inquiry in inquiries:
-            # Convert to CSV format
-            csv_row = {}
-            for field in fieldnames:
-                value = inquiry.get(field, '')
-                if isinstance(value, datetime):
-                    csv_row[field] = value.isoformat()
-                else:
-                    csv_row[field] = str(value) if value is not None else ''
-            writer.writerow(csv_row)
-        
-        csv_content = output.getvalue()
-        output.close()
-        
-        from fastapi.responses import Response
-        return Response(
-            content=csv_content,
-            media_type="text/csv",
-            headers={"Content-Disposition": f"attachment; filename=inquiries_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"}
-        )
-    except Exception as e:
-        logger.error(f"Error exporting to CSV: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to export to CSV: {str(e)}")
-
-# ============================================================================
-# HEALTH CHECK
-# ============================================================================
-
 @router.get("/health", response_model=ApiResponse[Dict[str, Any]])
 async def health_check():
-    """Health check endpoint"""
+    """Health check endpoint for inquiry service"""
     try:
-        # Test database connections
-        postgresql_healthy = await postgresql_connection.health_check()
-        
-        sqlite_healthy = True
-        try:
-            await sqlite_repository.count_documents({})
-        except Exception:
-            sqlite_healthy = False
+        # Test inquiry repository
+        inquiry_count = await inquiry_repository.count_documents({})
         
         return ApiResponse(
             success=True,
-            message="Service is healthy",
+            message="Inquiry service is healthy",
             data={
                 "status": "healthy",
-                "postgresql": "connected" if postgresql_healthy else "disconnected",
-                "sqlite": "connected" if sqlite_healthy else "disconnected",
+                "inquiry_count": inquiry_count,
                 "timestamp": datetime.now().isoformat()
             }
         )
     except Exception as e:
-        logger.error(f"Health check failed: {e}")
+        logger.error(f"Inquiry service health check failed: {e}")
         return ApiResponse(
             success=False,
-            message="Service is unhealthy",
-            error=str(e)
+            message="Inquiry service is unhealthy",
+            data={
+                "status": "unhealthy",
+                "error": str(e),
+                "timestamp": datetime.now().isoformat()
+            }
         )

@@ -5,7 +5,7 @@
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
-   cd web-chatbot-enhanced
+   cd jrc-enquiry-assistant-operations
    ```
 
 2. **Install dependencies**
@@ -68,7 +68,7 @@ Create a `.env` file with the following variables:
 OPENAI_API_KEY=your_openai_api_key_here
 
 # Database Configuration
-DATABASE_TYPE=local  # or 'cloud' for ChromaDB
+VECTOR_DATABASE_TYPE=local  # or 'cloud' for ChromaDB
 MONGODB_CONNECTION_URI=mongodb+srv://user:pass@cluster.mongodb.net/
 MONGODB_DATABASE_NAME=inquiryassistant
 MONGODB_CHAT_INQUIRY_COLLECTION=chat_inquiry_information
@@ -135,7 +135,7 @@ PORT=3000 python web_app.py
 ## Project Structure
 
 ```
-web-chatbot-enhanced/
+jrc-enquiry-assistant-operations/
 ├── api/                    # API modules
 │   ├── auth_api.py        # Authentication APIs
 │   ├── vector_chat_api.py # Vector chat APIs
