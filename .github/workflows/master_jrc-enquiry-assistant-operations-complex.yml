@@ -55,12 +55,46 @@ jobs:
         with:
           name: python-app
       
+      - name: Make startup script executable
+        run: |
+          chmod +x startup.sh
+          ls -la startup.sh
+      
       - name: Login to Azure
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_C91D4166D48941858A403CD9242162B2 }}
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_23597B7E33734F0E99075C285D0FF5A5 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_518ACEC4D46F4C6FBB9B98316C1FCF9E }}
+
+      - name: 'Configure Azure App Settings'
+        run: |
+          # Verify Azure login
+          echo "Checking Azure authentication..."
+          az account show
+          
+          # Use the known resource group from Azure resource info
+          RESOURCE_GROUP="jrc_grp"
+          echo "Using Resource Group: $RESOURCE_GROUP"
+          
+          # Stop the app service to prevent conflicts
+          echo "Stopping App Service to prevent conflicts..."
+          az webapp stop --resource-group $RESOURCE_GROUP --name jrc-enquiry-assistant-operations || echo "App service was already stopped"
+          
+          # Configure app settings
+          echo "Configuring App Settings..."
+          az webapp config appsettings set --resource-group $RESOURCE_GROUP --name jrc-enquiry-assistant-operations --settings \
+            WEBSITES_ENABLE_APP_SERVICE_STORAGE=true \
+            WEBSITES_PORT=8000 \
+            SCM_DO_BUILD_DURING_DEPLOYMENT=true \
+            ENVIRONMENT=production \
+            DEBUG=false \
+            PYTHONPATH=/home/site/wwwroot \
+            WEBSITES_CONTAINER_START_TIME_LIMIT=1800 \
+            WEBSITES_PYTHON_DEFAULT_VERSION=3.13 \
+            WEBSITES_PYTHON_VERSION=3.13 \
+            PYTHONUNBUFFERED=1 \
+            PYTHONDONTWRITEBYTECODE=1
 
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v3
@@ -69,9 +103,17 @@ jobs:
         timeout-minutes: 20
         with:
           app-name: 'jrc-enquiry-assistant-operations'
-          slot-name: 'Production'
           package: '.'
           startup-command: 'bash startup.sh'
+
+      - name: 'Restart Azure App Service'
+        run: |
+          # Use the known resource group from Azure resource info
+          RESOURCE_GROUP="jrc_grp"
+          echo "Restarting App Service in Resource Group: $RESOURCE_GROUP"
+          
+          # Restart the app service
+          az webapp restart --resource-group $RESOURCE_GROUP --name jrc-enquiry-assistant-operations
 
       - name: 'Verify Deployment'
         run: |
@@ -79,3 +121,4 @@ jobs:
           echo "App Name: jrc-enquiry-assistant-operations"
           echo "Slot: Production"
           echo "Startup Command: bash startup.sh"
+          echo "App Service has been restarted to apply new settings"
