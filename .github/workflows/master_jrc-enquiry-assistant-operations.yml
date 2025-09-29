@@ -67,13 +67,27 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_23597B7E33734F0E99075C285D0FF5A5 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_518ACEC4D46F4C6FBB9B98316C1FCF9E }}
 
+      - name: 'Check for Active Deployments'
+        run: |
+          echo "Checking for active deployments..."
+          az webapp deployment list --resource-group jrc_grp --name jrc-enquiry-assistant-operations --query "[?status=='InProgress'].{id:id, status:status, startTime:startTime}" --output table || echo "No active deployments found"
+
       - name: 'Stop Azure App Service'
         run: |
           echo "Stopping Azure App Service to prevent conflicts..."
           az webapp stop --resource-group jrc_grp --name jrc-enquiry-assistant-operations || echo "App service was already stopped or doesn't exist"
           
-          # Wait a moment for the stop to take effect
-          sleep 10
+          # Wait longer for the stop to take effect and avoid conflicts
+          sleep 30
+          
+          # Check if app service is actually stopped
+          STATE=$(az webapp show --resource-group jrc_grp --name jrc-enquiry-assistant-operations --query "state" --output tsv)
+          echo "App service state: $STATE"
+          
+          if [ "$STATE" != "Stopped" ]; then
+            echo "Warning: App service is not fully stopped, waiting another 30 seconds..."
+            sleep 30
+          fi
           
           echo "App service stopped successfully"
 
