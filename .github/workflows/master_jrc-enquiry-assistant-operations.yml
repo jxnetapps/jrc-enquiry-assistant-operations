@@ -62,22 +62,34 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_23597B7E33734F0E99075C285D0FF5A5 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_518ACEC4D46F4C6FBB9B98316C1FCF9E }}
 
-      - name: 'Stop Azure App Service'
-        run: |
-          # Get the resource group name for the web app
-          RESOURCE_GROUP=$(az webapp show --name jrc-enquiry-assistant-operations --query resourceGroup --output tsv)
-          echo "Stopping App Service in Resource Group: $RESOURCE_GROUP"
-          
-          # Stop the app service to prevent conflicts
-          az webapp stop --resource-group $RESOURCE_GROUP --name jrc-enquiry-assistant-operations --slot Production || echo "App service was already stopped"
-
       - name: 'Configure Azure App Settings'
         run: |
+          # Verify Azure login
+          echo "Checking Azure authentication..."
+          az account show
+          
+          # List all web apps to find the correct one
+          echo "Searching for web app: jrc-enquiry-assistant-operations"
+          az webapp list --query "[?name=='jrc-enquiry-assistant-operations'].{name:name, resourceGroup:resourceGroup}" --output table
+          
           # Get the resource group name for the web app
-          RESOURCE_GROUP=$(az webapp show --name jrc-enquiry-assistant-operations --query resourceGroup --output tsv)
-          echo "Resource Group: $RESOURCE_GROUP"
+          RESOURCE_GROUP=$(az webapp list --query "[?name=='jrc-enquiry-assistant-operations'].resourceGroup" --output tsv)
+          
+          if [ -z "$RESOURCE_GROUP" ]; then
+            echo "Web app 'jrc-enquiry-assistant-operations' not found. Available web apps:"
+            az webapp list --query "[].{name:name, resourceGroup:resourceGroup}" --output table
+            echo "Skipping app settings configuration."
+            exit 0
+          fi
+          
+          echo "Found App Service in Resource Group: $RESOURCE_GROUP"
+          
+          # Stop the app service to prevent conflicts
+          echo "Stopping App Service to prevent conflicts..."
+          az webapp stop --resource-group $RESOURCE_GROUP --name jrc-enquiry-assistant-operations --slot Production || echo "App service was already stopped"
           
           # Configure app settings
+          echo "Configuring App Settings..."
           az webapp config appsettings set --resource-group $RESOURCE_GROUP --name jrc-enquiry-assistant-operations --slot Production --settings \
             WEBSITES_ENABLE_APP_SERVICE_STORAGE=true \
             WEBSITES_PORT=8000 \
@@ -105,7 +117,13 @@ jobs:
       - name: 'Restart Azure App Service'
         run: |
           # Get the resource group name for the web app
-          RESOURCE_GROUP=$(az webapp show --name jrc-enquiry-assistant-operations --query resourceGroup --output tsv)
+          RESOURCE_GROUP=$(az webapp list --query "[?name=='jrc-enquiry-assistant-operations'].resourceGroup" --output tsv)
+          
+          if [ -z "$RESOURCE_GROUP" ]; then
+            echo "Web app 'jrc-enquiry-assistant-operations' not found. Skipping restart."
+            exit 0
+          fi
+          
           echo "Restarting App Service in Resource Group: $RESOURCE_GROUP"
           
           # Restart the app service

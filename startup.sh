@@ -13,6 +13,8 @@ export WEBSITES_ENABLE_APP_SERVICE_STORAGE=true
 export WEBSITES_PORT=8000
 export PYTHONUNBUFFERED=1
 export PYTHONDONTWRITEBYTECODE=1
+export ENVIRONMENT=production
+export DEBUG=false
 
 # Change to the application directory
 cd /home/site/wwwroot
@@ -20,6 +22,7 @@ cd /home/site/wwwroot
 echo "Current directory: $(pwd)"
 echo "Python version: $(python --version)"
 echo "Environment: $ENVIRONMENT"
+echo "Debug mode: $DEBUG"
 
 # Create necessary directories
 mkdir -p /home/site/wwwroot/chroma_db
