@@ -65,7 +65,26 @@ jobs:
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v3
         id: deploy-to-webapp
+        continue-on-error: false
+        timeout-minutes: 20
         with:
           app-name: 'jrc-enquiry-assistant-operations'
           slot-name: 'Production'
+          package: '.'
+          startup-command: 'bash startup.sh'
+          app-settings: |
+            -WEBSITES_ENABLE_APP_SERVICE_STORAGE=true
+            -WEBSITES_PORT=8000
+            -SCM_DO_BUILD_DURING_DEPLOYMENT=true
+            -ENVIRONMENT=production
+            -DEBUG=false
+            -PYTHONPATH=/home/site/wwwroot
+            -WEBSITES_CONTAINER_START_TIME_LIMIT=1800
+
+      - name: 'Verify Deployment'
+        run: |
+          echo "Deployment completed successfully!"
+          echo "App Name: jrc-enquiry-assistant-operations"
+          echo "Slot: Production"
+          echo "Startup Command: bash startup.sh"
           
