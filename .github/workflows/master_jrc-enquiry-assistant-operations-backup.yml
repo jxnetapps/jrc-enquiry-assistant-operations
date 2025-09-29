@@ -1,0 +1,87 @@
+# Backup deployment workflow using publish profile method
+# This is an alternative approach if the main workflow continues to fail
+
+name: Build and deploy Python app to Azure Web App - jrc-enquiry-assistant-operations (Backup)
+
+on:
+  workflow_dispatch:
+    inputs:
+      use_backup:
+        description: 'Use backup deployment method'
+        required: false
+        default: 'true'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python version
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Create and start virtual environment
+        run: |
+          python -m venv venv
+          source venv/bin/activate
+      
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Upload artifact for deployment jobs
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-app
+          path: |
+            .
+            !venv/
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: python-app
+      
+      - name: Make startup script executable
+        run: |
+          chmod +x startup.sh
+          ls -la startup.sh
+      
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_C91D4166D48941858A403CD9242162B2 }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_23597B7E33734F0E99075C285D0FF5A5 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_518ACEC4D46F4C6FBB9B98316C1FCF9E }}
+
+      - name: 'Get Publish Profile'
+        run: |
+          echo "Getting publish profile for deployment..."
+          az webapp deployment list-publishing-profiles --resource-group jrc_grp --name jrc-enquiry-assistant-operations --xml > publish-profile.xml
+          echo "Publish profile saved"
+
+      - name: 'Deploy using Publish Profile'
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'jrc-enquiry-assistant-operations'
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}
+          package: '.'
+          startup-command: 'bash startup.sh'
+
+      - name: 'Verify Deployment'
+        run: |
+          echo "Deployment completed successfully using publish profile method!"
+          echo "App Name: jrc-enquiry-assistant-operations"
+          echo "Startup Command: bash startup.sh"
