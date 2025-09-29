@@ -19,10 +19,14 @@ cd /home/site/wwwroot
 
 echo "Current directory: $(pwd)"
 echo "Python version: $(python --version)"
+echo "Environment: $ENVIRONMENT"
 
 # Create necessary directories
 mkdir -p /home/site/wwwroot/chroma_db
 mkdir -p /home/site/wwwroot/logs
+
+# Wait a moment to ensure all files are available
+sleep 2
 
 # Install dependencies if requirements.txt exists
 if [ -f "requirements.txt" ]; then
@@ -43,6 +47,8 @@ chmod +x /home/site/wwwroot/web_app.py
 # Verify the application file exists
 if [ ! -f "web_app.py" ]; then
     echo "Error: web_app.py not found!"
+    echo "Contents of current directory:"
+    ls -la
     exit 1
 fi
 
