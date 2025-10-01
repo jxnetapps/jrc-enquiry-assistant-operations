@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import TypeVar, Generic, Optional
+from contextlib import asynccontextmanager
 import logging
 
 T = TypeVar('T')
@@ -20,6 +21,37 @@ from api.database_api import router as database_router
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Lifespan event handler
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Manage application lifespan events"""
+    # Startup
+    try:
+        await postgresql_connection.connect()
+        logger.info("PostgreSQL connection established")
+        
+        # Create tables if they don't exist
+        await postgresql_connection.create_tables()
+        logger.info("PostgreSQL tables initialized")
+    except Exception as e:
+        logger.warning(f"Failed to connect to PostgreSQL: {e}")
+        logger.warning("Application will start with SQLite fallback. Chat inquiry features will use SQLite.")
+        # Don't raise the exception, let the app start with SQLite fallback
+    
+    # Start scheduler if enabled
+    if Config.SCHEDULE_CRAWL:
+        logger.info("Scheduler started")
+        # scheduler.schedule_crawl("https://edifyschools.com", Config.CRAWL_SCHEDULE)
+    
+    yield
+    
+    # Shutdown
+    try:
+        await postgresql_connection.disconnect()
+        logger.info("PostgreSQL connection closed")
+    except Exception as e:
+        logger.error(f"Error closing PostgreSQL connection: {e}")
 
 app = FastAPI(
     title="Web ChatBot Enhanced API",
@@ -63,6 +95,7 @@ app = FastAPI(
     - **OpenAPI JSON**: Machine-readable API specification
     """,
     version="2.0.0",
+    lifespan=lifespan,
     contact={
         "name": "Web ChatBot Support",
         "email": "support@webchatbot.com",
@@ -249,35 +282,6 @@ app.include_router(database_router, tags=["Database"])
 
 
 
-# Startup and shutdown events
-@app.on_event("startup")
-async def startup_event():
-    """Initialize PostgreSQL connection on startup"""
-    try:
-        await postgresql_connection.connect()
-        logger.info("PostgreSQL connection established")
-        
-        # Create tables if they don't exist
-        await postgresql_connection.create_tables()
-        logger.info("PostgreSQL tables initialized")
-    except Exception as e:
-        logger.warning(f"Failed to connect to PostgreSQL: {e}")
-        logger.warning("Application will start with SQLite fallback. Chat inquiry features will use SQLite.")
-        # Don't raise the exception, let the app start with SQLite fallback
-    
-    # Start scheduler if enabled
-    if Config.SCHEDULE_CRAWL:
-        logger.info("Scheduler started")
-        # scheduler.schedule_crawl("https://edifyschools.com", Config.CRAWL_SCHEDULE)
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Close PostgreSQL connection on shutdown"""
-    try:
-        await postgresql_connection.disconnect()
-        logger.info("PostgreSQL connection closed")
-    except Exception as e:
-        logger.error(f"Error closing PostgreSQL connection: {e}")
 
 if __name__ == "__main__":
     import uvicorn

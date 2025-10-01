@@ -29,6 +29,10 @@ Write-Host "Stopping app service..." -ForegroundColor Blue
 az webapp stop --resource-group $ResourceGroup --name $AppName
 Start-Sleep -Seconds 10
 
+# Clean up any local processes using port 8000
+Write-Host "Cleaning up local port 8000..." -ForegroundColor Blue
+& ".\scripts\cleanup-ports.ps1"
+
 # Configure app settings
 Write-Host "Configuring app settings..." -ForegroundColor Blue
 az webapp config appsettings set --resource-group $ResourceGroup --name $AppName --settings `

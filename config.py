@@ -60,7 +60,7 @@ class Config:
     
     # Answer Storage Configuration
     # Note: Answer storage always tries PostgreSQL first, falls back to SQLite if PostgreSQL fails
-    ANSWER_STORAGE_TYPE = os.getenv("ANSWER_STORAGE_TYPE", "auto")  # auto (postgresql -> sqlite), postgresql, sqlite
+    ANSWER_STORAGE_TYPE = os.getenv("ANSWER_STORAGE_TYPE", "sqlite")  # auto (postgresql -> sqlite), postgresql, sqlite
     
     # LLM Settings
     LLM_MODEL = os.getenv("LLM_MODEL", "gpt-3.5-turbo")
