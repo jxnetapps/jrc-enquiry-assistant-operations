@@ -75,7 +75,7 @@ python scripts/generate-azure-config.py required
 **Essential Settings:**
 ```
 ENVIRONMENT=azure
-POSTGRESQL_CONNECTION_URI=postgresql://postgres:Wildcat@007@db.umwxkbcvqvqqybjwcash.supabase.co:5432/postgres
+POSTGRESQL_CONNECTION_URI=postgresql://postgres:DbL9frkASS99v0f4@db.umwxkbcvqvqqybjwcash.supabase.co:5432/postgres
 POSTGRESQL_DATABASE_NAME=postgres
 JWT_SECRET_KEY=your_super_secure_production_jwt_secret_key
 ADMIN_USERNAME=admin

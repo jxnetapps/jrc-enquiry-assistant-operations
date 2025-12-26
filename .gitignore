@@ -92,6 +92,4 @@ embedding/__pycache__/
 utils/__pycache__/
 utils/__pycache__/
 app-logs/
-__pycache__/config.cpython-313.pyc
-__pycache__/config.cpython-313.pyc
-__pycache__/web_app.cpython-313.pyc
+__pycache__/
