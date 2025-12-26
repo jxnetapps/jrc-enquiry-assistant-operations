@@ -24,14 +24,19 @@ class Config:
     CHROMA_DB_PATH = os.getenv("CHROMA_DB_PATH", "./chroma_db")
     COLLECTION_NAME = os.getenv("COLLECTION_NAME", "web_content")
     
-    # Database Type: 'local' for FAISS, 'cloud' for Chroma Cloud
-    VECTOR_DATABASE_TYPE = os.getenv("VECTOR_DATABASE_TYPE", "local")
+    # Database Type: 'local' for FAISS, 'cloud' for Chroma Cloud, 'pinecone' for Pinecone
+    VECTOR_DATABASE_TYPE = os.getenv("VECTOR_DATABASE_TYPE", "pinecone")
     
     # Chroma Cloud Configuration
     CHROMA_CLOUD_API_KEY = os.getenv("CHROMA_CLOUD_API_KEY")
     CHROMA_CLOUD_TENANT_ID = os.getenv("CHROMA_CLOUD_TENANT_ID")
     CHROMA_CLOUD_DATABASE_ID = os.getenv("CHROMA_CLOUD_DATABASE_ID")
     CHROMA_CLOUD_COLLECTION_NAME = os.getenv("CHROMA_CLOUD_COLLECTION_NAME", "web_content")
+    
+    # Pinecone Configuration
+    PINECONE_API_KEY = os.getenv("PINECONE_API_KEY", "pcsk_6sAn8S_261r195u5B8Xy6aZVoV2JHVqMTxhU7mpgGeb3Vh5FYrXvD3umU2tP1PEHFqvbyX")
+    PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME", "edify-edicenter")
+    PINECONE_NAMESPACE = os.getenv("PINECONE_NAMESPACE")  # Optional, can be overridden via API
     
     # Crawler Settings
     MAX_PAGES_TO_CRAWL = int(os.getenv("MAX_PAGES_TO_CRAWL", "100"))
@@ -44,6 +49,10 @@ class Config:
     MIN_CONTENT_LENGTH = int(os.getenv("MIN_CONTENT_LENGTH", "100"))
     MAX_CONTENT_LENGTH = int(os.getenv("MAX_CONTENT_LENGTH", "10000"))
     CONTENT_QUALITY_THRESHOLD = float(os.getenv("CONTENT_QUALITY_THRESHOLD", "0.5"))
+    
+    # Chunking Configuration
+    CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "1000"))  # Size of each content chunk
+    CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "200"))  # Overlap between chunks
     
     # Embedding Settings
     EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
@@ -133,3 +142,10 @@ class Config:
                 raise ValueError("CHROMA_CLOUD_TENANT_ID is required when using cloud database")
             if not cls.CHROMA_CLOUD_DATABASE_ID:
                 raise ValueError("CHROMA_CLOUD_DATABASE_ID is required when using cloud database")
+        
+        # Validate Pinecone configuration
+        if cls.VECTOR_DATABASE_TYPE == "pinecone":
+            if not cls.PINECONE_API_KEY:
+                raise ValueError("PINECONE_API_KEY is required when using Pinecone database")
+            if not cls.PINECONE_INDEX_NAME:
+                raise ValueError("PINECONE_INDEX_NAME is required when using Pinecone database")

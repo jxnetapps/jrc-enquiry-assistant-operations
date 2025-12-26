@@ -1,7 +1,9 @@
 #!/bin/bash
-# Production environment startup script for Linux/Mac
+# Main startup script for Linux/Mac - uses virtual environment
 
-echo "Starting Web ChatBot in Production Mode..."
+echo "========================================"
+echo "Starting JRC Enquiry Assistant"
+echo "========================================"
 echo ""
 
 # Check if virtual environment exists
@@ -18,10 +20,10 @@ fi
 echo "Activating virtual environment..."
 source venv/bin/activate
 
-# Set environment
-export ENVIRONMENT=production
-
 echo ""
 echo "Starting application..."
+echo ""
+
 # Start the application using venv Python
 python web_app.py
+

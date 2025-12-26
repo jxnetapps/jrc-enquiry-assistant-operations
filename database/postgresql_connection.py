@@ -5,12 +5,35 @@ PostgreSQL connection manager with SQLite fallback
 import asyncio
 import logging
 from typing import Optional
-import asyncpg
-import psycopg2
-from sqlalchemy import create_engine, text
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
 from config import Config
+
+# Optional imports for PostgreSQL support
+try:
+    import asyncpg
+    ASYNCPG_AVAILABLE = True
+except ImportError:
+    ASYNCPG_AVAILABLE = False
+    asyncpg = None
+
+try:
+    import psycopg2
+    PSYCOPG2_AVAILABLE = True
+except ImportError:
+    PSYCOPG2_AVAILABLE = False
+    psycopg2 = None
+
+try:
+    from sqlalchemy import create_engine, text
+    from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+    from sqlalchemy.orm import sessionmaker
+    SQLALCHEMY_AVAILABLE = True
+except ImportError:
+    SQLALCHEMY_AVAILABLE = False
+    create_engine = None
+    text = None
+    create_async_engine = None
+    AsyncSession = None
+    sessionmaker = None
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +53,15 @@ class PostgreSQLConnection:
 
     async def connect(self):
         """Establish connection to PostgreSQL with fallback to SQLite"""
+        # Check if required packages are available
+        if not ASYNCPG_AVAILABLE or not SQLALCHEMY_AVAILABLE:
+            logger.warning("PostgreSQL packages not available (asyncpg or sqlalchemy missing). Using SQLite fallback.")
+            self._async_engine = None
+            self._sync_engine = None
+            self._async_session = None
+            self._sync_session = None
+            return False
+        
         try:
             # Try async connection first
             connection_uri = Config.get_postgresql_connection_uri()
@@ -87,6 +119,8 @@ class PostgreSQLConnection:
     async def is_connected(self) -> bool:
         """Check if PostgreSQL is connected"""
         try:
+            if not ASYNCPG_AVAILABLE or not SQLALCHEMY_AVAILABLE:
+                return False
             if self._async_engine is None:
                 return False
             
@@ -138,6 +172,8 @@ class PostgreSQLConnection:
     async def health_check(self) -> bool:
         """Check if PostgreSQL connection is healthy"""
         try:
+            if not ASYNCPG_AVAILABLE or not SQLALCHEMY_AVAILABLE:
+                return False
             if self._async_engine is None:
                 return False
             

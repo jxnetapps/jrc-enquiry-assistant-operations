@@ -2,6 +2,20 @@
 Write-Host "Starting JRC Enquiry Assistant in SQLite Mode..." -ForegroundColor Green
 Write-Host ""
 
+# Check if virtual environment exists
+if (-not (Test-Path "venv")) {
+    Write-Host "ERROR: Virtual environment not found!" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "Please create the virtual environment first by running:" -ForegroundColor Yellow
+    Write-Host "  setup-venv.bat" -ForegroundColor Yellow
+    Write-Host ""
+    exit 1
+}
+
+# Activate virtual environment
+Write-Host "Activating virtual environment..." -ForegroundColor Cyan
+& "venv\Scripts\Activate.ps1"
+
 # Set environment variables for SQLite mode
 $env:ANSWER_STORAGE_TYPE = "sqlite"
 $env:POSTGRESQL_CONNECTION_URI = "postgresql://invalid:invalid@localhost:5432/invalid"
@@ -21,6 +35,6 @@ if (-not $env:ADMIN_PASSWORD) {
 Write-Host "Environment configured for SQLite mode" -ForegroundColor Yellow
 Write-Host ""
 
-# Start the application
+# Start the application using venv Python
 Write-Host "Starting application..." -ForegroundColor Cyan
 python web_app.py

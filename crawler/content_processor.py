@@ -12,8 +12,18 @@ class ContentProcessor:
         return text.strip()
     
     @staticmethod
-    def chunk_content(content: Dict[str, str], chunk_size: int = 1000, overlap: int = 200) -> List[Dict[str, str]]:
-        """Split content into overlapping chunks"""
+    def chunk_content(content: Dict[str, str], chunk_size: int = None, overlap: int = None) -> List[Dict[str, str]]:
+        """Split content into overlapping chunks
+        
+        Args:
+            content: Dictionary containing content to chunk
+            chunk_size: Size of each chunk (defaults to Config.CHUNK_SIZE)
+            overlap: Overlap between chunks (defaults to Config.CHUNK_OVERLAP)
+        """
+        # Use config defaults if not provided
+        chunk_size = chunk_size or Config.CHUNK_SIZE
+        overlap = overlap or Config.CHUNK_OVERLAP
+        
         text = content['content']
         chunks = []
         

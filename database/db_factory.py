@@ -13,18 +13,27 @@ except ImportError:
     CHROMADB_AVAILABLE = False
     ChromaCloudDB = None
 
+# Try to import PineconeDB, handle gracefully if not available
+try:
+    from database.pinecone_db import PineconeDB
+    PINECONE_AVAILABLE = True
+except ImportError:
+    PINECONE_AVAILABLE = False
+    PineconeDB = None
+
 logger = logging.getLogger(__name__)
 
 class DatabaseFactory:
     """Factory class to create appropriate vector database implementation"""
     
     @staticmethod
-    def create_vector_db(user_namespace: Optional[str] = None) -> VectorDBInterface:
+    def create_vector_db(user_namespace: Optional[str] = None, namespace: Optional[str] = None) -> VectorDBInterface:
         """
         Create a vector database instance based on configuration
         
         Args:
-            user_namespace: Optional user namespace for data isolation
+            user_namespace: Optional user namespace for data isolation (legacy parameter)
+            namespace: Optional namespace parameter (takes precedence over user_namespace and config)
             
         Returns:
             VectorDBInterface: Appropriate database implementation
@@ -45,8 +54,16 @@ class DatabaseFactory:
                     )
                 logger.info("Creating Chroma Cloud vector database")
                 return ChromaCloudDB(user_namespace=user_namespace)
+            elif Config.VECTOR_DATABASE_TYPE == "pinecone":
+                if not PINECONE_AVAILABLE:
+                    raise ImportError(
+                        "Pinecone is not installed but Pinecone mode is requested.\n"
+                        "Install Pinecone with: pip install pinecone"
+                    )
+                logger.info("Creating Pinecone vector database")
+                return PineconeDB(user_namespace=user_namespace, namespace=namespace)
             else:
-                raise ValueError(f"Unsupported database type: {Config.VECTOR_DATABASE_TYPE}. Use 'local' or 'cloud'")
+                raise ValueError(f"Unsupported database type: {Config.VECTOR_DATABASE_TYPE}. Use 'local', 'cloud', or 'pinecone'")
                 
         except Exception as e:
             logger.error(f"Failed to create vector database: {e}")
